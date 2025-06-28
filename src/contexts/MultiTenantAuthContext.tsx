@@ -106,6 +106,7 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
   const [userOrganizations, setUserOrganizations] = useState<UserOrganization[]>([]);
   const [isOrgAdmin, setIsOrgAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [loadingOrganizations, setLoadingOrganizations] = useState(false);
 
   // Helper function to check if user is super admin (global)
   const checkSuperAdminStatus = (user: User | null): boolean => {
@@ -116,11 +117,19 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
 
   // Load user's organizations and set current org
   const loadUserOrganizations = async (userId: string) => {
+    // Prevent concurrent calls
+    if (loadingOrganizations) {
+      console.log('🏢 DEBUG: loadUserOrganizations already in progress, skipping...');
+      return;
+    }
+    
+    setLoadingOrganizations(true);
     try {
       console.log('🏢 Loading organizations for user:', userId);
       console.log('🏢 DEBUG: About to execute Supabase query...');
       
-      const { data: orgs, error } = await supabase
+      // Add timeout to prevent hanging
+      const queryPromise = supabase
         .from('user_organizations')
         .select(`
           id,
@@ -140,6 +149,13 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
         `)
         .eq('user_id', userId)
         .eq('is_active', true);
+      
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
+      );
+      
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      const { data: orgs, error } = result;
 
       console.log('🏢 DEBUG: Supabase query completed');
       console.log('🏢 DEBUG: Raw query result - data:', orgs);
@@ -156,6 +172,7 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
         setUserOrganizations([]);
         setCurrentOrganization(null);
         setIsOrgAdmin(false);
+        setLoadingOrganizations(false);
         console.log('🏢 DEBUG: Early return due to error - loadUserOrganizations complete');
         return;
       }
@@ -179,6 +196,7 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
           console.log('🏢 Creating default organization for super admin');
           await createDefaultOrganization(userId);
         }
+        setLoadingOrganizations(false);
         console.log('🏢 DEBUG: Early return due to no orgs - loadUserOrganizations complete');
         return;
       }
@@ -228,6 +246,9 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
       setCurrentOrganization(null);
       setIsOrgAdmin(false);
       console.log('🏢 DEBUG: Exception handled - loadUserOrganizations complete');
+    } finally {
+      setLoadingOrganizations(false);
+      console.log('🏢 DEBUG: loadingOrganizations set to false');
     }
   };
 
