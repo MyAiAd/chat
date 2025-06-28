@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-toastify';
+import { Link } from 'react-router-dom';
 
 const Settings = () => {
   const { isAdmin, supabase, user } = useAuth();
@@ -185,8 +186,10 @@ const Settings = () => {
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center mb-4">
-              <SettingsIcon className="mr-3 h-8 w-8 text-blue-400" />
-              <h1 className="text-3xl font-bold text-white">AI Chat Settings</h1>
+              <Link to="/chat" className="flex items-center group hover:opacity-80 focus:outline-none">
+                <Bot className="mr-3 h-8 w-8 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                <span className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors">AI Chat</span>
+              </Link>
             </div>
             <p className="text-gray-400">
               Manage your AI provider API keys and knowledge base documents
