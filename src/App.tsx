@@ -32,8 +32,10 @@ const Navigation = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Bot className="h-8 w-8 text-blue-400 mr-3" />
-            <h1 className="text-xl font-bold text-white">AI Chat</h1>
+            <Link to="/chat" className="flex items-center group hover:opacity-80 focus:outline-none">
+              <Bot className="h-8 w-8 text-blue-400 mr-3 group-hover:text-blue-300 transition-colors" />
+              <h1 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors">AI Chat</h1>
+            </Link>
           </div>
 
           {/* Navigation Links */}
