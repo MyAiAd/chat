@@ -41,6 +41,9 @@ const Settings = () => {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
+  
+  // Super admin promotion state
+  const [becomingSuperAdmin, setBecomingSuperAdmin] = useState(false);
 
   useEffect(() => {
     loadAiData();
@@ -377,6 +380,53 @@ const Settings = () => {
     }
   };
 
+  const handleBecomeSuperAdmin = async () => {
+    if (!user?.id) {
+      toast.error('User not found');
+      return;
+    }
+
+    setBecomingSuperAdmin(true);
+    try {
+      console.log('🔧 Requesting super admin status for user:', user.id);
+
+      // Get the user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
+
+      // Call our API endpoint to set super admin status
+      const response = await fetch('/api/set-super-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to become super admin');
+      }
+
+      console.log('✅ Super admin status granted successfully');
+      toast.success('You are now the Platform Owner! Please refresh the page.');
+      
+      // Suggest page refresh to pick up new permissions
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error('❌ Error becoming super admin:', error);
+      toast.error(`Failed to become platform owner: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setBecomingSuperAdmin(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-8">
@@ -559,9 +609,34 @@ const Settings = () => {
               </div>
               <div className="text-center py-6">
                 <p className="text-gray-400 mb-2">🔒 Platform Owner Only</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mb-4">
                   Only the platform owner can manage knowledge base documents. These documents enhance AI responses for all users across all organizations.
                 </p>
+                
+                {/* Become Platform Owner Button */}
+                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 mt-4">
+                  <h3 className="text-blue-300 font-medium mb-2">Become Platform Owner</h3>
+                  <p className="text-sm text-gray-300 mb-3">
+                    If you're the first user or need to manage platform-wide settings, you can become the platform owner.
+                  </p>
+                  <button
+                    onClick={handleBecomeSuperAdmin}
+                    disabled={becomingSuperAdmin}
+                    className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {becomingSuperAdmin ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Becoming Owner...
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="mr-2 h-4 w-4" />
+                        Become Platform Owner
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
