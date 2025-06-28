@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff, Search, Building2, Users } from 'lucide-react';
+import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff, Search, Building2, Users, Upload } from 'lucide-react';
 import { useMultiTenantAuth } from '../hooks/useMultiTenantAuth';
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
@@ -30,6 +30,11 @@ const Settings = () => {
   const [ragTestQuery, setRagTestQuery] = useState('');
   const [ragTestResults, setRagTestResults] = useState<any>(null);
   const [testingRag, setTestingRag] = useState(false);
+  
+  // File upload state
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadMethod, setUploadMethod] = useState<'text' | 'file'>('file');
 
   useEffect(() => {
     loadAiData();
@@ -131,23 +136,75 @@ const Settings = () => {
     }
   };
 
-  const handleAddRagDocument = async () => {
-    if (!newRagDoc.title.trim() || !newRagDoc.content.trim()) {
-      toast.error('Please enter both title and content');
-      return;
-    }
+  // Extract text content from uploaded file
+  const extractTextFromFile = async (file: File): Promise<{ content: string; title: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        const title = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+        resolve({ content, title });
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+      
+      // For now, we'll handle text files. Later we can add PDF/Word parsing
+      if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+        reader.readAsText(file);
+      } else {
+        reject(new Error('Unsupported file type. Please upload .txt or .md files, or use manual text entry.'));
+      }
+    });
+  };
 
+  const handleAddRagDocument = async () => {
+    setUploadingFile(true);
+    
     try {
+      let title = newRagDoc.title;
+      let content = newRagDoc.content;
+      let fileType = 'text';
+      let fileSize = null;
+
+      // Handle file upload
+      if (uploadMethod === 'file' && selectedFile) {
+        if (!selectedFile) {
+          toast.error('Please select a file to upload');
+          return;
+        }
+        
+        const extracted = await extractTextFromFile(selectedFile);
+        title = title.trim() || extracted.title;
+        content = extracted.content;
+        fileType = selectedFile.type || 'text/plain';
+        fileSize = selectedFile.size;
+        
+        if (!content.trim()) {
+          toast.error('The uploaded file appears to be empty');
+          return;
+        }
+      } else if (uploadMethod === 'text') {
+        // Handle manual text entry
+        if (!title.trim() || !content.trim()) {
+          toast.error('Please enter both title and content');
+          return;
+        }
+      }
+
       const tags = newRagDoc.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
       
       const { error } = await supabase
         .from('rag_documents')
         .insert({
-          title: newRagDoc.title,
-          content: newRagDoc.content,
+          title: title,
+          content: content,
           tags: tags,
           uploaded_by: user?.id,
-          file_type: 'text',
+          file_type: fileType,
+          file_size: fileSize,
           organization_id: currentOrganization?.id
         });
 
@@ -155,11 +212,14 @@ const Settings = () => {
 
       toast.success('Document added successfully!');
       setNewRagDoc({ title: '', content: '', tags: '' });
+      setSelectedFile(null);
       setShowAddDocModal(false);
       loadAiData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding document:', error);
-      toast.error('Failed to add document');
+      toast.error(`Failed to add document: ${error.message || error}`);
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -332,21 +392,37 @@ const Settings = () => {
                     <div key={doc.id} className="bg-gray-700 rounded-lg p-4 flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
-                          <FileText className="h-5 w-5 text-green-400" />
+                          {doc.file_type !== 'text' ? (
+                            <Upload className="h-5 w-5 text-blue-400" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-green-400" />
+                          )}
                           <div>
-                            <h3 className="font-medium text-white">{doc.title}</h3>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h3 className="font-medium text-white">{doc.title}</h3>
+                              {doc.file_size && (
+                                <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">
+                                  {(doc.file_size / 1024).toFixed(1)} KB
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-400 mt-1 line-clamp-2">
                               {doc.content.substring(0, 100)}...
                             </p>
-                            {doc.tags && doc.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {doc.tags.map((tag: string, index: number) => (
-                                  <span key={index} className="px-2 py-1 bg-blue-900/30 text-blue-300 text-xs rounded">
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            <div className="flex items-center space-x-2 mt-2">
+                              {doc.tags && doc.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {doc.tags.map((tag: string, index: number) => (
+                                    <span key={index} className="px-2 py-1 bg-blue-900/30 text-blue-300 text-xs rounded">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <span className="text-xs text-gray-500">
+                                {doc.file_type !== 'text' ? 'Uploaded File' : 'Manual Entry'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -432,28 +508,93 @@ const Settings = () => {
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl border border-gray-700">
             <h3 className="text-lg font-semibold text-white mb-4">Add Knowledge Base Document</h3>
             
+            {/* Upload Method Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-3">Upload Method</label>
+              <div className="flex space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="file"
+                    checked={uploadMethod === 'file'}
+                    onChange={(e) => setUploadMethod(e.target.value as 'file' | 'text')}
+                    className="mr-2 text-green-500 focus:ring-green-500"
+                  />
+                  <span className="text-white">Upload File</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="text"
+                    checked={uploadMethod === 'text'}
+                    onChange={(e) => setUploadMethod(e.target.value as 'file' | 'text')}
+                    className="mr-2 text-green-500 focus:ring-green-500"
+                  />
+                  <span className="text-white">Manual Text Entry</span>
+                </label>
+              </div>
+            </div>
+            
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
-                <input
-                  type="text"
-                  value={newRagDoc.title}
-                  onChange={(e) => setNewRagDoc({...newRagDoc, title: e.target.value})}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Document title"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Content</label>
-                <textarea
-                  value={newRagDoc.content}
-                  onChange={(e) => setNewRagDoc({...newRagDoc, content: e.target.value})}
-                  rows={8}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Document content..."
-                />
-              </div>
+              {uploadMethod === 'file' ? (
+                // File Upload Mode
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Select File (.txt, .md files supported)
+                    </label>
+                    <input
+                      type="file"
+                      accept=".txt,.md,text/plain,text/markdown"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-green-600 file:text-white hover:file:bg-green-700"
+                    />
+                    {selectedFile && (
+                      <p className="text-sm text-gray-400 mt-2">
+                        Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Title (optional - will use filename if empty)
+                    </label>
+                    <input
+                      type="text"
+                      value={newRagDoc.title}
+                      onChange={(e) => setNewRagDoc({...newRagDoc, title: e.target.value})}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Optional custom title"
+                    />
+                  </div>
+                </>
+              ) : (
+                // Manual Text Entry Mode
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
+                    <input
+                      type="text"
+                      value={newRagDoc.title}
+                      onChange={(e) => setNewRagDoc({...newRagDoc, title: e.target.value})}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Document title"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Content</label>
+                    <textarea
+                      value={newRagDoc.content}
+                      onChange={(e) => setNewRagDoc({...newRagDoc, content: e.target.value})}
+                      rows={8}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="Document content..."
+                    />
+                  </div>
+                </>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Tags (comma-separated)</label>
@@ -469,16 +610,21 @@ const Settings = () => {
             
             <div className="flex justify-end space-x-3 mt-6">
               <button
-                onClick={() => setShowAddDocModal(false)}
+                onClick={() => {
+                  setShowAddDocModal(false);
+                  setSelectedFile(null);
+                  setNewRagDoc({ title: '', content: '', tags: '' });
+                }}
                 className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddRagDocument}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={uploadingFile}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add Document
+                {uploadingFile ? 'Processing...' : 'Add Document'}
               </button>
             </div>
           </div>
