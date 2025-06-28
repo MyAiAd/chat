@@ -207,7 +207,7 @@ const Settings = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center">
                 <Key className="mr-3 h-6 w-6 text-blue-400" />
-                <h2 className="text-xl font-semibold text-white">API Keys</h2>
+                <h2 className="text-xl font-semibold text-white">Settings</h2>
               </div>
               <button
                 onClick={() => setShowAddKeyModal(true)}
@@ -228,7 +228,6 @@ const Settings = () => {
                   <div key={key.id} className="bg-gray-700 rounded-lg p-4 flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3">
-                        <Bot className="h-5 w-5 text-blue-400" />
                         <div>
                           <div className="flex items-center space-x-2">
                             <span className="font-medium text-white capitalize">{key.provider}</span>
