@@ -160,6 +160,15 @@ const Settings = () => {
     });
   };
 
+  // Helper function to reset modal state
+  const resetRagDocModal = () => {
+    setNewRagDoc({ title: '', content: '', tags: '' });
+    setSelectedFile(null);
+    setUploadMethod('file');
+    setUploadingFile(false);
+    setShowAddDocModal(false);
+  };
+
   const handleAddRagDocument = async () => {
     setUploadingFile(true);
     
@@ -173,6 +182,7 @@ const Settings = () => {
       if (uploadMethod === 'file' && selectedFile) {
         if (!selectedFile) {
           toast.error('Please select a file to upload');
+          setUploadingFile(false);
           return;
         }
         
@@ -184,12 +194,14 @@ const Settings = () => {
         
         if (!content.trim()) {
           toast.error('The uploaded file appears to be empty');
+          setUploadingFile(false);
           return;
         }
       } else if (uploadMethod === 'text') {
         // Handle manual text entry
         if (!title.trim() || !content.trim()) {
           toast.error('Please enter both title and content');
+          setUploadingFile(false);
           return;
         }
       }
@@ -210,15 +222,18 @@ const Settings = () => {
 
       if (error) throw error;
 
+      // Success! Close modal and reload data
       toast.success('Document added successfully!');
-      setNewRagDoc({ title: '', content: '', tags: '' });
-      setSelectedFile(null);
-      setShowAddDocModal(false);
-      loadAiData();
+      
+      // Use setTimeout to ensure proper state cleanup and DOM updates
+      setTimeout(() => {
+        resetRagDocModal();
+        loadAiData();
+      }, 100);
+      
     } catch (error: any) {
       console.error('Error adding document:', error);
       toast.error(`Failed to add document: ${error.message || error}`);
-    } finally {
       setUploadingFile(false);
     }
   };
@@ -610,11 +625,7 @@ const Settings = () => {
             
             <div className="flex justify-end space-x-3 mt-6">
               <button
-                onClick={() => {
-                  setShowAddDocModal(false);
-                  setSelectedFile(null);
-                  setNewRagDoc({ title: '', content: '', tags: '' });
-                }}
+                onClick={resetRagDocModal}
                 className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
               >
                 Cancel
