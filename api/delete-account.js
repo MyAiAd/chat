@@ -7,13 +7,36 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('🔍 Delete account API called');
+    console.log('🔍 Environment check:', {
+      hasSupabaseUrl: !!process.env.VITE_SUPABASE_URL,
+      hasAnonKey: !!process.env.VITE_SUPABASE_ANON_KEY,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    });
+
+    // Check if we have required environment variables
+    if (!process.env.VITE_SUPABASE_URL) {
+      console.error('❌ Missing VITE_SUPABASE_URL');
+      return res.status(500).json({ error: 'Missing Supabase URL configuration' });
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY');
+      return res.status(500).json({ 
+        error: 'Missing service role key configuration',
+        details: 'SUPABASE_SERVICE_ROLE_KEY environment variable is required for admin operations'
+      });
+    }
+
     // Get the user's auth token from the request
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ Missing or invalid auth header');
       return res.status(401).json({ error: 'Missing or invalid authorization header' });
     }
 
     const token = authHeader.replace('Bearer ', '');
+    console.log('✅ Auth token received');
 
     // Create Supabase client with service role key for admin operations
     const supabaseAdmin = createClient(
@@ -26,6 +49,8 @@ export default async function handler(req, res) {
         }
       }
     );
+
+    console.log('✅ Supabase admin client created');
 
     // Create regular client to verify the user's token
     const supabaseClient = createClient(
