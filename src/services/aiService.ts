@@ -277,98 +277,82 @@ IMPORTANT: When answering, reference the specific documents above when relevant 
     return fullContext;
   }
 
-  // Call OpenAI API
+  // Call OpenAI API via proxy
   async callOpenAI(messages: ChatMessage[], model: string = 'gpt-3.5-turbo'): Promise<string> {
     const apiKey = await this.getApiKey('openai');
     if (!apiKey) throw new Error('OpenAI API key not configured');
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('/api/openai', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model,
         messages,
-        temperature: 0.7,
-        max_tokens: 1000
+        model,
+        apiKey
       })
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error || `OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || 'No response generated';
+    return data.response || 'No response generated';
   }
 
-  // Call Anthropic API
+  // Call Anthropic API via proxy
   async callAnthropic(messages: ChatMessage[], model: string = 'claude-3-haiku-20240307'): Promise<string> {
     const apiKey = await this.getApiKey('anthropic');
     if (!apiKey) throw new Error('Anthropic API key not configured');
 
-    // Convert messages to Anthropic format
-    const anthropicMessages = messages
-      .filter(msg => msg.role !== 'system')
-      .map(msg => ({
-        role: msg.role === 'user' ? 'human' : 'assistant',
-        content: msg.content
-      }));
-
-    const systemMessage = messages.find(msg => msg.role === 'system')?.content || '';
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/anthropic', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'anthropic-version': '2023-06-01'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        messages,
         model,
-        max_tokens: 1000,
-        system: systemMessage,
-        messages: anthropicMessages
+        apiKey
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Anthropic API error: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Anthropic API error: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.content[0]?.text || 'No response generated';
+    return data.response || 'No response generated';
   }
 
-  // Call OpenRouter API
+  // Call OpenRouter API via proxy
   async callOpenRouter(messages: ChatMessage[], model: string = 'openai/gpt-3.5-turbo'): Promise<string> {
     const apiKey = await this.getApiKey('openrouter');
     if (!apiKey) throw new Error('OpenRouter API key not configured');
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('/api/openrouter', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Affiliate Platform AI Chat'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model,
         messages,
-        temperature: 0.7,
-        max_tokens: 1000
+        model,
+        apiKey
       })
     });
 
     if (!response.ok) {
-      throw new Error(`OpenRouter API error: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error || `OpenRouter API error: ${response.status}`);
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || 'No response generated';
+    return data.response || 'No response generated';
   }
 
   // Main method to generate AI response with RAG
