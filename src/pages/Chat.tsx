@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Plus, Settings, Key, AlertCircle, Bot, User, FileText, Trash2, RotateCcw } from 'lucide-react';
+import { MessageCircle, Send, Plus, Settings, Key, AlertCircle, Bot, User, FileText, Trash2, RotateCcw, Menu } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-toastify';
 import { AIService } from '../services/aiService';
@@ -41,6 +41,7 @@ const Chat = () => {
   const [selectedProvider, setSelectedProvider] = useState('openai');
   const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showMenu, setShowMenu] = useState(false);
 
   const modelOptions = {
     openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o'],
@@ -58,6 +59,16 @@ const Chat = () => {
     loadConversations();
     loadApiKeys();
   }, []);
+
+  // Add event listener to close menu when clicking outside
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      setShowMenu(false);
+    };
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, [showMenu]);
 
   const loadApiKeys = async () => {
     try {
@@ -326,8 +337,29 @@ const Chat = () => {
       <div className="w-80 border-r border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-4">
+            {/* Dropdown Menu replacing MessageCircle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu((prev) => !prev)}
+                className="p-2 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title="Menu"
+              >
+                <Menu className="h-5 w-5 text-blue-400" />
+              </button>
+              {showMenu && (
+                <div className="absolute left-0 mt-2 w-40 bg-gray-900 border border-gray-700 rounded-lg shadow-lg z-50">
+                  <a
+                    href="/settings"
+                    className="block px-4 py-2 text-sm text-white hover:bg-gray-800 rounded-t-lg"
+                  >
+                    <Settings className="inline-block mr-2 h-4 w-4" />
+                    Settings
+                  </a>
+                </div>
+              )}
+            </div>
             <h2 className="text-lg font-semibold flex items-center">
-              <MessageCircle className="mr-2 h-5 w-5 text-blue-400" />
+              {/* <MessageCircle className="mr-2 h-5 w-5 text-blue-400" /> */}
               AI Chat
             </h2>
             <button
