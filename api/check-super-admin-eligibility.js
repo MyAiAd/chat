@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('🔧 Set super admin API called');
+    console.log('🔍 Checking super admin eligibility...');
 
     // Check if we have required environment variables
     if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -49,11 +49,19 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid authentication token' });
     }
 
-    console.log('🔧 Setting super admin status for user:', user.email);
+    console.log('🔍 Checking eligibility for user:', user.email);
 
-    // SECURITY: Only allow if this is the ONLY user in the system
-    console.log('🔒 Checking if user is the only user in the system...');
-    
+    // Check if user is already super admin
+    const isAlreadyAdmin = user.user_metadata?.is_admin === true || user.user_metadata?.is_admin === 'true';
+    if (isAlreadyAdmin) {
+      console.log('🔍 User is already super admin');
+      return res.status(200).json({ 
+        canBecomeSuperAdmin: false,
+        reason: 'User is already super admin'
+      });
+    }
+
+    // Check total number of users in the system
     const { data: allUsers, error: userCountError } = await supabaseAdmin.auth.admin.listUsers();
     
     if (userCountError) {
@@ -65,52 +73,23 @@ export default async function handler(req, res) {
     }
 
     const totalUsers = allUsers?.users?.length || 0;
-    console.log('🔒 Total users in system:', totalUsers);
+    console.log('🔍 Total users in system:', totalUsers);
 
-    // Only allow if there's exactly 1 user (this user) in the system
-    if (totalUsers !== 1) {
-      console.log('🚫 SECURITY: Blocked super admin promotion - other users exist');
-      return res.status(403).json({ 
-        error: 'Super admin promotion not allowed',
-        details: `Cannot become platform owner when ${totalUsers} users exist. Only the first user can become platform owner.`
-      });
-    }
-
-    console.log('✅ SECURITY: User is the only user in system, allowing promotion');
-
-    // Update user metadata to mark as super admin
-    const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
-      {
-        user_metadata: {
-          ...user.user_metadata,
-          is_admin: true
-        }
-      }
-    );
-
-    if (updateError) {
-      console.error('Error updating user metadata:', updateError);
-      return res.status(500).json({ 
-        error: 'Failed to update user metadata',
-        details: updateError.message 
-      });
-    }
-
-    console.log('✅ Successfully set super admin status for user:', user.email);
+    // Only eligible if there's exactly 1 user (this user) in the system
+    const canBecomeSuperAdmin = totalUsers === 1;
+    
+    console.log('🔍 Can become super admin:', canBecomeSuperAdmin);
     
     return res.status(200).json({ 
-      success: true, 
-      message: 'Super admin status granted successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        is_admin: true
-      }
+      canBecomeSuperAdmin,
+      totalUsers,
+      reason: canBecomeSuperAdmin 
+        ? 'User is the only user in the system' 
+        : `Cannot become platform owner when ${totalUsers} users exist`
     });
 
   } catch (error) {
-    console.error('❌ Set super admin error:', error);
+    console.error('❌ Eligibility check error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
       details: error.message 

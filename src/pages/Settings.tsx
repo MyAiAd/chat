@@ -44,10 +44,47 @@ const Settings = () => {
   
   // Super admin promotion state
   const [becomingSuperAdmin, setBecomingSuperAdmin] = useState(false);
+  const [isOnlyUser, setIsOnlyUser] = useState(false);
+  const [checkingUserCount, setCheckingUserCount] = useState(true);
 
   useEffect(() => {
     loadAiData();
+    checkIfOnlyUser();
   }, []);
+
+  const checkIfOnlyUser = async () => {
+    if (isSuperAdmin) {
+      setIsOnlyUser(false);
+      setCheckingUserCount(false);
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setIsOnlyUser(false);
+        setCheckingUserCount(false);
+        return;
+      }
+
+      // Call a simple check endpoint to see if user can become super admin
+      const response = await fetch('/api/check-super-admin-eligibility', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      const result = await response.json();
+      setIsOnlyUser(response.ok && result.canBecomeSuperAdmin);
+    } catch (error) {
+      console.error('Error checking user eligibility:', error);
+      setIsOnlyUser(false);
+    } finally {
+      setCheckingUserCount(false);
+    }
+  };
 
   // AI Settings handlers
   const loadAiData = async () => {
@@ -613,30 +650,47 @@ const Settings = () => {
                   Only the platform owner can manage knowledge base documents. These documents enhance AI responses for all users across all organizations.
                 </p>
                 
-                {/* Become Platform Owner Button */}
-                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 mt-4">
-                  <h3 className="text-blue-300 font-medium mb-2">Become Platform Owner</h3>
-                  <p className="text-sm text-gray-300 mb-3">
-                    If you're the first user or need to manage platform-wide settings, you can become the platform owner.
-                  </p>
-                  <button
-                    onClick={handleBecomeSuperAdmin}
-                    disabled={becomingSuperAdmin}
-                    className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {becomingSuperAdmin ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Becoming Owner...
-                      </>
-                    ) : (
-                      <>
-                        <Building2 className="mr-2 h-4 w-4" />
-                        Become Platform Owner
-                      </>
-                    )}
-                  </button>
-                </div>
+                {/* Become Platform Owner Section - Only show if user is the only user */}
+                {checkingUserCount ? (
+                  <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-4 mt-4">
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 mr-2"></div>
+                      <span className="text-gray-400">Checking eligibility...</span>
+                    </div>
+                  </div>
+                ) : isOnlyUser ? (
+                  <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 mt-4">
+                    <h3 className="text-blue-300 font-medium mb-2">🚀 Become Platform Owner</h3>
+                    <p className="text-sm text-gray-300 mb-3">
+                      You are the only user in the system. You can become the platform owner to manage RAG documents and platform-wide settings.
+                    </p>
+                    <button
+                      onClick={handleBecomeSuperAdmin}
+                      disabled={becomingSuperAdmin}
+                      className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {becomingSuperAdmin ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Becoming Owner...
+                        </>
+                      ) : (
+                        <>
+                          <Building2 className="mr-2 h-4 w-4" />
+                          Become Platform Owner
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 mt-4">
+                    <h3 className="text-red-300 font-medium mb-2">🔒 Platform Owner Unavailable</h3>
+                    <p className="text-sm text-gray-300">
+                      Platform ownership is only available to the first user when no other users exist in the system. 
+                      Other users are currently registered.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
