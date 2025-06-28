@@ -40,7 +40,7 @@ const Chat = () => {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedProvider, setSelectedProvider] = useState('openai');
-  const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
+  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   
@@ -50,9 +50,21 @@ const Chat = () => {
   const [currentDraft, setCurrentDraft] = useState('');
 
   const modelOptions = {
-    openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o'],
-    openrouter: ['openai/gpt-3.5-turbo', 'openai/gpt-4', 'anthropic/claude-3-haiku', 'anthropic/claude-3-sonnet'],
-    anthropic: ['claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-opus-20240229']
+    openai: [
+      'gpt-4o-mini',       // Small: Fast & cost-effective
+      'gpt-4o',            // Mid: Balanced performance  
+      'gpt-4-turbo'        // Top: Advanced reasoning
+    ],
+    anthropic: [
+      'claude-3-haiku-20240307',    // Small: Fastest & most cost-effective
+      'claude-3-5-sonnet-20241022', // Mid: Enhanced reasoning & performance
+      'claude-3-opus-20240229'      // Top: Most powerful model
+    ],
+    openrouter: [
+      'meta-llama/llama-3.1-8b-instruct',  // Small: Fast 8B param model
+      'mistralai/mistral-small',           // Mid: 22B param instruction-tuned
+      'openai/gpt-4o'                      // Top: OpenAI flagship via OpenRouter
+    ]
   };
 
   // Scroll to bottom when messages change

@@ -278,7 +278,7 @@ IMPORTANT: When answering, reference the specific documents above when relevant 
   }
 
   // Call OpenAI API via proxy
-  async callOpenAI(messages: ChatMessage[], model: string = 'gpt-3.5-turbo'): Promise<string> {
+  async callOpenAI(messages: ChatMessage[], model: string = 'gpt-4o-mini'): Promise<string> {
     const apiKey = await this.getApiKey('openai');
     if (!apiKey) throw new Error('OpenAI API key not configured');
 
@@ -347,7 +347,7 @@ IMPORTANT: When answering, reference the specific documents above when relevant 
   }
 
   // Call OpenRouter API via proxy
-  async callOpenRouter(messages: ChatMessage[], model: string = 'openai/gpt-3.5-turbo'): Promise<string> {
+  async callOpenRouter(messages: ChatMessage[], model: string = 'meta-llama/llama-3.1-8b-instruct'): Promise<string> {
     const apiKey = await this.getApiKey('openrouter');
     if (!apiKey) throw new Error('OpenRouter API key not configured');
 
@@ -486,17 +486,20 @@ ${context}`
   // Get all available models for a provider
   getAvailableModels(provider: string): string[] {
     const models = {
-      openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o'],
-      anthropic: ['claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-opus-20240229'],
+      openai: [
+        'gpt-4o-mini',       // Small: Fast & cost-effective
+        'gpt-4o',            // Mid: Balanced performance  
+        'gpt-4-turbo'        // Top: Advanced reasoning
+      ],
+      anthropic: [
+        'claude-3-haiku-20240307',    // Small: Fastest & most cost-effective
+        'claude-3-5-sonnet-20241022', // Mid: Enhanced reasoning & performance
+        'claude-3-opus-20240229'      // Top: Most powerful model
+      ],
       openrouter: [
-        'openai/gpt-3.5-turbo',
-        'openai/gpt-4',
-        'openai/gpt-4-turbo',
-        'anthropic/claude-3-haiku',
-        'anthropic/claude-3-sonnet',
-        'anthropic/claude-3-opus',
-        'meta-llama/llama-3.1-70b-instruct',
-        'google/gemini-pro'
+        'meta-llama/llama-3.1-8b-instruct',  // Small: Fast 8B param model
+        'mistralai/mistral-small',           // Mid: 22B param instruction-tuned
+        'openai/gpt-4o'                      // Top: OpenAI flagship via OpenRouter
       ]
     };
 
