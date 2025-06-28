@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-jennaz-purple-dark font-sans text-gray-200;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif text-white;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md transition-all duration-200 font-medium;
+  }
+  
+  .btn-primary {
+    @apply bg-jennaz-rose text-jennaz-purple-dark hover:bg-jennaz-rose-light;
+  }
+  
+  .btn-secondary {
+    @apply bg-jennaz-purple text-white hover:bg-opacity-80 border border-jennaz-rose;
+  }
+
+  .card {
+    @apply bg-jennaz-purple rounded-lg p-6 shadow-jennaz border border-jennaz-rose border-opacity-10;
+  }
+
+  .input-field {
+    @apply bg-jennaz-purple-light border-jennaz-rose border-opacity-30 rounded-md px-4 py-2 
+    text-gray-200 focus:border-jennaz-rose focus:outline-none focus:ring-1 focus:ring-jennaz-rose;
+  }
+
+  .nav-link {
+    @apply px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-jennaz-purple transition;
+  }
+
+  .nav-link-active {
+    @apply bg-jennaz-purple text-white;
+  }
+
+  .table-header {
+    @apply px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-jennaz-rose-light;
+  }
+  
+  .table-cell {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-300;
+  }
+
+  .stat-card {
+    @apply card flex flex-col gap-2 border-l-4 border-l-jennaz-rose;
+  }
+  
+  .divider {
+    @apply h-px w-full bg-jennaz-rose bg-opacity-20 my-6;
+  }
+
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-jennaz-rose-gradient;
+  }
+
+  .table-row {
+    @apply bg-jennaz-purple-dark;
+  }
+
+  .table-row-hover {
+    @apply hover:bg-jennaz-purple-light;
+  }
+
+  .highlight-card {
+    @apply card flex flex-col gap-2 border-l-4 border-l-jennaz-rose;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-jennaz-purple-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-jennaz-rose bg-opacity-30 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-jennaz-rose bg-opacity-50;
+}
