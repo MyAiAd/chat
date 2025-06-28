@@ -7,11 +7,19 @@ export default async function handler(req, res) {
   try {
     const { messages, model = 'claude-3-haiku-20240307', apiKey } = req.body;
 
+    console.log('🔑 Anthropic API - Request received');
+    console.log('🔑 API Key length:', apiKey ? apiKey.length : 0);
+    console.log('🔑 API Key prefix:', apiKey ? apiKey.substring(0, 10) + '...' : 'null');
+    console.log('🔑 Model:', model);
+    console.log('🔑 Messages count:', messages ? messages.length : 0);
+
     if (!apiKey) {
+      console.error('❌ No API key provided');
       return res.status(400).json({ error: 'API key is required' });
     }
 
     if (!messages || !Array.isArray(messages)) {
+      console.error('❌ Invalid messages array');
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
@@ -25,6 +33,19 @@ export default async function handler(req, res) {
 
     const systemMessage = messages.find((msg) => msg.role === 'system')?.content || '';
 
+    console.log('🔑 Anthropic Messages:', anthropicMessages.length, 'messages converted');
+    console.log('🔑 System Message length:', systemMessage.length);
+
+    const requestBody = {
+      model,
+      max_tokens: 1000,
+      system: systemMessage,
+      messages: anthropicMessages
+    };
+
+    console.log('🔑 Making request to Anthropic API...');
+    console.log('🔑 Request body:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -32,20 +53,20 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${apiKey}`,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1000,
-        system: systemMessage,
-        messages: anthropicMessages
-      })
+      body: JSON.stringify(requestBody)
     });
+
+    console.log('🔑 Anthropic API response status:', response.status);
+    console.log('🔑 Response headers:', Object.fromEntries(response.headers));
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Anthropic API error:', response.status, errorData);
+      console.error('❌ Anthropic API error:', response.status, errorData);
+      console.error('❌ Response headers:', Object.fromEntries(response.headers));
       return res.status(response.status).json({ 
         error: `Anthropic API error: ${response.status}`,
-        details: errorData
+        details: errorData,
+        apiKeyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : 'null'
       });
     }
 
