@@ -340,7 +340,7 @@ const Chat = () => {
             {/* Dropdown Menu replacing MessageCircle */}
             <div className="relative">
               <button
-                onClick={() => setShowMenu((prev) => !prev)}
+                onClick={e => { e.stopPropagation(); setShowMenu((prev) => !prev); }}
                 className="p-2 rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 title="Menu"
               >
