@@ -118,6 +118,7 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
   const loadUserOrganizations = async (userId: string) => {
     try {
       console.log('🏢 Loading organizations for user:', userId);
+      console.log('🏢 DEBUG: About to execute Supabase query...');
       
       const { data: orgs, error } = await supabase
         .from('user_organizations')
@@ -140,68 +141,93 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
         .eq('user_id', userId)
         .eq('is_active', true);
 
+      console.log('🏢 DEBUG: Supabase query completed');
+      console.log('🏢 DEBUG: Raw query result - data:', orgs);
+      console.log('🏢 DEBUG: Raw query result - error:', error);
+
       if (error) {
         console.error('🚨 Error loading organizations:', error);
+        console.error('🚨 Error details:', JSON.stringify(error, null, 2));
         console.error('🚨 This usually means the database migration has not been run yet!');
-        console.error('🚨 Please run the contents of database/multi_tenant_migration.sql in Supabase SQL Editor');
+        console.error('🚨 Please run the SQL migration in Supabase SQL Editor');
         
         // Don't let this error block the app - set empty organizations and continue
+        console.log('🏢 DEBUG: Setting empty organizations due to error');
         setUserOrganizations([]);
         setCurrentOrganization(null);
         setIsOrgAdmin(false);
+        console.log('🏢 DEBUG: Early return due to error - loadUserOrganizations complete');
         return;
       }
 
       console.log('🏢 Found organizations:', orgs?.length || 0);
+      console.log('🏢 DEBUG: Organizations data:', JSON.stringify(orgs, null, 2));
       
       if (!orgs || orgs.length === 0) {
         console.log('🏢 No organizations found for user. This is normal for new users before migration.');
+        console.log('🏢 DEBUG: Setting empty organizations - no orgs found');
         setUserOrganizations([]);
         setCurrentOrganization(null);
         setIsOrgAdmin(false);
         
+        // Check if user is super admin
+        const isSuperAdmin = checkSuperAdminStatus(user);
+        console.log('🏢 DEBUG: User super admin status:', isSuperAdmin);
+        
         // If user is super admin but has no orgs, create a default one
-        if (checkSuperAdminStatus(user)) {
+        if (isSuperAdmin) {
           console.log('🏢 Creating default organization for super admin');
           await createDefaultOrganization(userId);
         }
+        console.log('🏢 DEBUG: Early return due to no orgs - loadUserOrganizations complete');
         return;
       }
       
       // Transform the data to match our UserOrganization interface
+      console.log('🏢 DEBUG: Transforming organizations data...');
       const transformedOrgs = orgs?.map(org => ({
         ...org,
         organization: Array.isArray(org.organization) ? org.organization[0] : org.organization
       })) || [];
       
+      console.log('🏢 DEBUG: Transformed organizations:', JSON.stringify(transformedOrgs, null, 2));
       setUserOrganizations(transformedOrgs as UserOrganization[]);
 
       // Set current organization (from localStorage, or first admin org, or first org)
       const savedOrgId = localStorage.getItem('currentOrganizationId');
+      console.log('🏢 DEBUG: Saved organization ID from localStorage:', savedOrgId);
       let targetOrg: UserOrganization | undefined;
 
       if (savedOrgId) {
         targetOrg = transformedOrgs.find(org => org.organization_id === savedOrgId);
+        console.log('🏢 DEBUG: Found saved org:', targetOrg ? targetOrg.organization.name : 'not found');
       }
       
       if (!targetOrg && transformedOrgs.length > 0) {
         const adminOrg = transformedOrgs.find(org => org.role === 'admin');
         targetOrg = adminOrg || transformedOrgs[0];
+        console.log('🏢 DEBUG: Selected fallback org:', targetOrg ? targetOrg.organization.name : 'none');
       }
 
       if (targetOrg) {
+        console.log('🏢 DEBUG: About to switch to organization:', targetOrg.organization.name);
         await switchOrganization(targetOrg.organization_id);
+        console.log('🏢 DEBUG: Organization switch completed');
       } else if (checkSuperAdminStatus(user)) {
         // No organizations - create a default one for super admin
         console.log('🏢 No organizations found, creating default for super admin');
         await createDefaultOrganization(userId);
       }
+      
+      console.log('🏢 DEBUG: loadUserOrganizations completed successfully');
     } catch (error) {
       console.error('🚨 Unexpected error in loadUserOrganizations:', error);
+      console.error('🚨 Error stack:', error instanceof Error ? error.stack : 'No stack available');
       // Don't let this error block the app
       setUserOrganizations([]);
       setCurrentOrganization(null);
       setIsOrgAdmin(false);
+      console.log('🏢 DEBUG: Exception handled - loadUserOrganizations complete');
     }
   };
 
@@ -385,13 +411,19 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
     // Auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🏢 Auth state change:', event);
+      console.log('🏢 DEBUG: Auth state change - mounted:', mounted);
+      console.log('🏢 DEBUG: Auth state change - session user:', session?.user?.email || 'none');
       
       if (mounted) {
         if (session?.user) {
+          console.log('🏢 DEBUG: Setting user and loading organizations...');
           setUser(session.user);
           setIsSuperAdmin(checkSuperAdminStatus(session.user));
+          console.log('🏢 DEBUG: About to call loadUserOrganizations...');
           await loadUserOrganizations(session.user.id);
+          console.log('🏢 DEBUG: loadUserOrganizations call completed');
         } else {
+          console.log('🏢 DEBUG: No user, clearing state...');
           setUser(null);
           setIsSuperAdmin(false);
           setCurrentOrganization(null);
@@ -399,7 +431,11 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
           setIsOrgAdmin(false);
           localStorage.removeItem('currentOrganizationId');
         }
+        console.log('🏢 DEBUG: Setting loading to false...');
         setLoading(false);
+        console.log('🏢 DEBUG: Auth state change complete - loading set to false');
+      } else {
+        console.log('🏢 DEBUG: Component not mounted, skipping state updates');
       }
     });
 
