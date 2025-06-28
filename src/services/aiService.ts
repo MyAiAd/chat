@@ -306,26 +306,43 @@ IMPORTANT: When answering, reference the specific documents above when relevant 
   // Call Anthropic API via proxy
   async callAnthropic(messages: ChatMessage[], model: string = 'claude-3-haiku-20240307'): Promise<string> {
     const apiKey = await this.getApiKey('anthropic');
+    console.log('🔑 Client Debug - Anthropic API Key Retrieved:');
+    console.log('🔑 API Key length:', apiKey ? apiKey.length : 0);
+    console.log('🔑 API Key prefix:', apiKey ? apiKey.substring(0, 15) + '...' : 'null');
+    console.log('🔑 API Key starts with sk-ant-:', apiKey ? apiKey.startsWith('sk-ant-') : false);
+    
     if (!apiKey) throw new Error('Anthropic API key not configured');
+
+    const requestPayload = {
+      messages,
+      model,
+      apiKey
+    };
+
+    console.log('🔑 Client Debug - Request Payload:');
+    console.log('🔑 Model:', model);
+    console.log('🔑 Messages count:', messages.length);
+    console.log('🔑 Messages preview:', messages.map(m => ({ role: m.role, contentLength: m.content.length })));
 
     const response = await fetch('/api/anthropic', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        messages,
-        model,
-        apiKey
-      })
+      body: JSON.stringify(requestPayload)
     });
+
+    console.log('🔑 Client Debug - Response Status:', response.status);
+    console.log('🔑 Client Debug - Response Headers:', Object.fromEntries(response.headers));
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error('🔑 Client Debug - Error Response:', errorData);
       throw new Error(errorData.error || `Anthropic API error: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('🔑 Client Debug - Success Response:', data);
     return data.response || 'No response generated';
   }
 
