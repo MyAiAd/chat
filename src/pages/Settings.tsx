@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { AIService } from '../services/aiService';
 
 const Settings = () => {
-  const { isOrgAdmin, supabase, user, currentOrganization, userOrganizations, createOrganization } = useMultiTenantAuth();
+  const { isOrgAdmin, isSuperAdmin, supabase, user, currentOrganization, userOrganizations, createOrganization } = useMultiTenantAuth();
   const aiService = new AIService(supabase, currentOrganization?.id);
   
   // AI Settings state
@@ -61,9 +61,9 @@ const Settings = () => {
       console.log('✅ API keys loaded successfully:', keys);
       setAiKeys(keys || []);
 
-      // Load RAG documents (if org admin)
-      if (isOrgAdmin && currentOrganization) {
-        console.log('🔍 User is admin, loading RAG documents for org:', currentOrganization.id);
+      // Load RAG documents (if super admin - platform owner only)
+      if (isSuperAdmin) {
+        console.log('🔍 Super admin loading RAG documents...');
         
         let docsQuery = supabase
           .from('rag_documents')
@@ -71,8 +71,13 @@ const Settings = () => {
           .eq('is_active', true)
           .order('created_at', { ascending: false });
 
-        // Filter by organization_id to match saving logic
-        docsQuery = docsQuery.eq('organization_id', currentOrganization.id);
+        // For super admin, show documents from current org if selected, otherwise show all
+        if (currentOrganization) {
+          docsQuery = docsQuery.eq('organization_id', currentOrganization.id);
+          console.log('📂 Filtering documents for organization:', currentOrganization.name);
+        } else {
+          console.log('📂 Loading all documents (no organization filter)');
+        }
 
         const { data: docs, error: docsError } = await docsQuery;
 
@@ -83,8 +88,8 @@ const Settings = () => {
         
         console.log('✅ RAG documents loaded successfully:', docs);
         setRagDocuments(docs || []);
-      } else if (isOrgAdmin) {
-        console.log('⚠️ Admin user but no organization selected, clearing documents');
+      } else {
+        console.log('⚠️ User is not super admin, no RAG document access');
         setRagDocuments([]);
       }
     } catch (error) {
@@ -380,8 +385,8 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* RAG Documents Section (Org Admin Only) */}
-          {isOrgAdmin && currentOrganization && (
+          {/* RAG Documents Section (Platform Owner Only) */}
+          {isSuperAdmin && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
@@ -389,7 +394,7 @@ const Settings = () => {
                   <div>
                     <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
                     <p className="text-xs text-gray-400 mt-1">
-                      Organization: {currentOrganization.name} • {ragDocuments.length} document(s)
+                      {currentOrganization ? `Organization: ${currentOrganization.name} • ` : 'All Organizations • '}{ragDocuments.length} document(s)
                     </p>
                   </div>
                 </div>
@@ -468,33 +473,17 @@ const Settings = () => {
             </div>
           )}
 
-          {/* RAG Documents Info for Non-Admins */}
-          {!isOrgAdmin && (
+          {/* RAG Documents Info for Non-Super-Admins */}
+          {!isSuperAdmin && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <div className="flex items-center mb-4">
                 <FileText className="mr-3 h-6 w-6 text-gray-400" />
                 <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
               </div>
               <div className="text-center py-6">
-                <p className="text-gray-400 mb-2">📚 Knowledge Base Access</p>
+                <p className="text-gray-400 mb-2">🔒 Platform Owner Only</p>
                 <p className="text-sm text-gray-500">
-                  Only organization administrators can manage knowledge base documents.
-                  {!currentOrganization ? ' Please join an organization to access this feature.' : ' Contact your organization admin for document management.'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {isOrgAdmin && !currentOrganization && (
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <div className="flex items-center mb-4">
-                <FileText className="mr-3 h-6 w-6 text-yellow-400" />
-                <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
-              </div>
-              <div className="text-center py-6">
-                <p className="text-yellow-400 mb-2">⚠️ No Organization Selected</p>
-                <p className="text-sm text-gray-400">
-                  Please select an organization to manage knowledge base documents.
+                  Only the platform owner can manage knowledge base documents. These documents enhance AI responses for all users across all organizations.
                 </p>
               </div>
             </div>
