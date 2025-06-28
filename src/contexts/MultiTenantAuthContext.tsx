@@ -141,11 +141,32 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
         .eq('is_active', true);
 
       if (error) {
-        console.error('Error loading organizations:', error);
+        console.error('🚨 Error loading organizations:', error);
+        console.error('🚨 This usually means the database migration has not been run yet!');
+        console.error('🚨 Please run the contents of database/multi_tenant_migration.sql in Supabase SQL Editor');
+        
+        // Don't let this error block the app - set empty organizations and continue
+        setUserOrganizations([]);
+        setCurrentOrganization(null);
+        setIsOrgAdmin(false);
         return;
       }
 
       console.log('🏢 Found organizations:', orgs?.length || 0);
+      
+      if (!orgs || orgs.length === 0) {
+        console.log('🏢 No organizations found for user. This is normal for new users before migration.');
+        setUserOrganizations([]);
+        setCurrentOrganization(null);
+        setIsOrgAdmin(false);
+        
+        // If user is super admin but has no orgs, create a default one
+        if (checkSuperAdminStatus(user)) {
+          console.log('🏢 Creating default organization for super admin');
+          await createDefaultOrganization(userId);
+        }
+        return;
+      }
       
       // Transform the data to match our UserOrganization interface
       const transformedOrgs = orgs?.map(org => ({
@@ -176,7 +197,11 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
         await createDefaultOrganization(userId);
       }
     } catch (error) {
-      console.error('Error in loadUserOrganizations:', error);
+      console.error('🚨 Unexpected error in loadUserOrganizations:', error);
+      // Don't let this error block the app
+      setUserOrganizations([]);
+      setCurrentOrganization(null);
+      setIsOrgAdmin(false);
     }
   };
 
