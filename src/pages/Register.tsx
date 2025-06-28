@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, UserPlus, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useMultiTenantAuth } from '../hooks/useMultiTenantAuth';
 import { toast } from 'react-toastify';
 
 const Register = () => {
@@ -12,7 +12,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp } = useMultiTenantAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
