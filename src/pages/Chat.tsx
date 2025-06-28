@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, Plus, Settings, Key, AlertCircle, Bot, User, FileText, Trash2, RotateCcw, Menu } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useMultiTenantAuth } from '../hooks/useMultiTenantAuth';
 import { toast } from 'react-toastify';
 import { AIService } from '../services/aiService';
 
@@ -30,8 +30,8 @@ interface ApiKey {
 }
 
 const Chat = () => {
-  const { supabase, user } = useAuth();
-  const aiService = new AIService(supabase);
+  const { supabase, user, currentOrganization } = useMultiTenantAuth();
+  const aiService = new AIService(supabase, currentOrganization?.id);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -59,6 +59,22 @@ const Chat = () => {
   useEffect(() => {
     loadConversations();
     loadApiKeys();
+  }, []);
+
+  // Update AI service organization context when organization changes
+  useEffect(() => {
+    aiService.setOrganizationContext(currentOrganization?.id || null);
+  }, [currentOrganization]);
+
+  // Listen for organization changes from navigation
+  useEffect(() => {
+    const handleOrgChange = () => {
+      console.log('🏢 Chat: Organization changed, reloading conversations');
+      loadConversations();
+    };
+
+    window.addEventListener('organizationChanged', handleOrgChange);
+    return () => window.removeEventListener('organizationChanged', handleOrgChange);
   }, []);
 
   // Add event listener to close menu when clicking outside
@@ -156,7 +172,8 @@ const Chat = () => {
           user_id: user.id,
           title: 'New Conversation',
           ai_provider: selectedProvider,
-          model_name: selectedModel
+          model_name: selectedModel,
+          organization_id: currentOrganization?.id
         })
         .select()
         .single();

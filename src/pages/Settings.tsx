@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff, Search } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff, Search, Building2, Users } from 'lucide-react';
+import { useMultiTenantAuth } from '../hooks/useMultiTenantAuth';
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
 import { AIService } from '../services/aiService';
 
 const Settings = () => {
-  const { isAdmin, supabase, user } = useAuth();
-  const aiService = new AIService(supabase);
+  const { isOrgAdmin, supabase, user, currentOrganization, userOrganizations, createOrganization } = useMultiTenantAuth();
+  const aiService = new AIService(supabase, currentOrganization?.id);
   
   // AI Settings state
   const [aiKeys, setAiKeys] = useState<any[]>([]);
@@ -56,8 +56,8 @@ const Settings = () => {
       console.log('✅ API keys loaded successfully:', keys);
       setAiKeys(keys || []);
 
-      // Load RAG documents (if admin)
-      if (isAdmin) {
+      // Load RAG documents (if org admin)
+      if (isOrgAdmin) {
         console.log('🔍 User is admin, loading RAG documents...');
         const { data: docs, error: docsError } = await supabase
           .from('rag_documents')
@@ -147,7 +147,8 @@ const Settings = () => {
           content: newRagDoc.content,
           tags: tags,
           uploaded_by: user?.id,
-          file_type: 'text'
+          file_type: 'text',
+          organization_id: currentOrganization?.id
         });
 
       if (error) throw error;
@@ -295,8 +296,8 @@ const Settings = () => {
             </div>
           </div>
 
-          {/* RAG Documents Section (Admin Only) */}
-          {isAdmin && (
+          {/* RAG Documents Section (Org Admin Only) */}
+          {isOrgAdmin && currentOrganization && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">

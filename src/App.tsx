@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
-import { MessageCircle, Settings, LogOut, Bot } from 'lucide-react';
+import { useMultiTenantAuth } from './hooks/useMultiTenantAuth';
+import { MessageCircle, Settings, LogOut, Bot, Building2, ChevronDown } from 'lucide-react';
 
 // Lazy load components
 const Chat = lazy(() => import('./pages/Chat'));
@@ -21,7 +21,7 @@ const LoadingScreen = () => (
 
 // Navigation component
 const Navigation = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, currentOrganization, userOrganizations, switchOrganization } = useMultiTenantAuth();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
@@ -64,6 +64,35 @@ const Navigation = () => {
               Settings
             </Link>
 
+            {/* Organization Selector */}
+            {currentOrganization && userOrganizations.length > 1 && (
+              <div className="relative group">
+                <button className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  {currentOrganization.name}
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </button>
+                <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded-md shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity z-50">
+                  {userOrganizations.map((org) => (
+                    <button
+                      key={org.organization_id}
+                      onClick={() => switchOrganization(org.organization_id)}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors ${
+                        org.organization_id === currentOrganization?.id 
+                          ? 'text-blue-400 bg-gray-700' 
+                          : 'text-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{org.organization.name}</span>
+                        <span className="text-xs text-gray-500 capitalize">{org.role}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* User Menu */}
             <div className="flex items-center space-x-3">
               <span className="text-sm text-gray-300">{user?.email}</span>
@@ -84,7 +113,7 @@ const Navigation = () => {
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading } = useMultiTenantAuth();
 
   if (loading) {
     return <LoadingScreen />;
@@ -119,7 +148,7 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => (
 );
 
 function App() {
-  const { user, loading } = useAuth();
+  const { user, loading } = useMultiTenantAuth();
 
   console.log('App.tsx: Auth state - loading:', loading, 'user:', user?.email || 'none');
 

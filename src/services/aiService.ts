@@ -20,9 +20,17 @@ export interface ChatMessage {
 
 export class AIService {
   private supabase: SupabaseClient;
+  private currentOrganizationId: string | null = null;
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient, organizationId?: string) {
     this.supabase = supabase;
+    this.currentOrganizationId = organizationId || null;
+  }
+
+  // Set organization context for this service instance
+  setOrganizationContext(organizationId: string | null) {
+    this.currentOrganizationId = organizationId;
+    console.log('🏢 AI Service: Organization context set to:', organizationId);
   }
 
   // Get user's API key for a specific provider
@@ -64,13 +72,23 @@ export class AIService {
         `title.ilike.%${keyword}%,content.ilike.%${keyword}%,tags.cs.{${keyword}}`
       );
       
-      // Perform the search
-      const { data, error } = await this.supabase
+      // Perform the search with organization context
+      let dbQuery = this.supabase
         .from('rag_documents')
         .select('*')
         .eq('is_active', true)
-        .or(searchConditions.join(','))
         .limit(limit * 2); // Get more results for relevance scoring
+
+      // Apply organization filter if context is set
+      if (this.currentOrganizationId) {
+        dbQuery = dbQuery.eq('organization_id', this.currentOrganizationId);
+        console.log('🏢 RAG Search: Filtering by organization:', this.currentOrganizationId);
+      }
+
+      // Apply search conditions
+      dbQuery = dbQuery.or(searchConditions.join(','));
+
+      const { data, error } = await dbQuery;
 
       if (error) {
         console.error('❌ RAG Search - Database error:', error);
@@ -133,12 +151,19 @@ export class AIService {
       
       if (words.length === 0) {
         // Last resort: get most recent documents
-        const { data, error } = await this.supabase
+        let recentQuery = this.supabase
           .from('rag_documents')
           .select('*')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(limit);
+
+        // Apply organization filter if context is set
+        if (this.currentOrganizationId) {
+          recentQuery = recentQuery.eq('organization_id', this.currentOrganizationId);
+        }
+
+        const { data, error } = await recentQuery;
           
         console.log('🔄 RAG Fallback - Using recent documents:', data?.length || 0);
         return data || [];
@@ -148,12 +173,21 @@ export class AIService {
         `title.ilike.%${word}%,content.ilike.%${word}%`
       );
 
-      const { data, error } = await this.supabase
+      let fallbackQuery = this.supabase
         .from('rag_documents')
         .select('*')
         .eq('is_active', true)
-        .or(fallbackConditions.join(','))
         .limit(limit);
+
+      // Apply organization filter if context is set
+      if (this.currentOrganizationId) {
+        fallbackQuery = fallbackQuery.eq('organization_id', this.currentOrganizationId);
+      }
+
+      // Apply fallback search conditions
+      fallbackQuery = fallbackQuery.or(fallbackConditions.join(','));
+
+      const { data, error } = await fallbackQuery;
 
       if (error) throw error;
       
@@ -423,14 +457,22 @@ ${context}`
     };
   }
 
-  // Get all documents for admin review
+  // Get all documents for admin review (organization-scoped)
   async getAllDocuments(): Promise<RAGDocument[]> {
     try {
-      const { data, error } = await this.supabase
+      let docsQuery = this.supabase
         .from('rag_documents')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
+
+      // Apply organization filter if context is set
+      if (this.currentOrganizationId) {
+        docsQuery = docsQuery.eq('organization_id', this.currentOrganizationId);
+        console.log('🏢 Getting documents for organization:', this.currentOrganizationId);
+      }
+
+      const { data, error } = await docsQuery;
 
       if (error) throw error;
       return data || [];
