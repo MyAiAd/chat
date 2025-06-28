@@ -341,64 +341,25 @@ const Settings = () => {
     try {
       console.log('🗑️ Starting account deletion process for user:', user.id);
 
-      // 1. Get user's conversation IDs first, then delete messages
-      const { data: userConversations } = await supabase
-        .from('chat_conversations')
-        .select('id')
-        .eq('user_id', user.id);
+      // Get the user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No valid session found');
+      }
 
-      if (userConversations && userConversations.length > 0) {
-        const conversationIds = userConversations.map(conv => conv.id);
-        const { error: messagesError } = await supabase
-          .from('chat_messages')
-          .delete()
-          .in('conversation_id', conversationIds);
-
-        if (messagesError) {
-          console.error('Error deleting messages:', messagesError);
-          // Continue anyway
+      // Call our secure API endpoint for account deletion
+      const response = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         }
-              }
+      });
 
-      // 2. Delete user's conversations
-      const { error: conversationsError } = await supabase
-        .from('chat_conversations')
-        .delete()
-        .eq('user_id', user.id);
+      const result = await response.json();
 
-      if (conversationsError) {
-        console.error('Error deleting conversations:', conversationsError);
-        // Continue anyway
-      }
-
-      // 3. Delete user's API keys
-      const { error: apiKeysError } = await supabase
-        .from('ai_api_keys')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (apiKeysError) {
-        console.error('Error deleting API keys:', apiKeysError);
-        // Continue anyway
-      }
-
-      // 4. Delete user's organization memberships
-      const { error: orgMembershipsError } = await supabase
-        .from('user_organizations')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (orgMembershipsError) {
-        console.error('Error deleting organization memberships:', orgMembershipsError);
-        // Continue anyway
-      }
-
-      // 5. Finally, delete the user account itself
-      const { error: userDeleteError } = await supabase.auth.admin.deleteUser(user.id);
-
-      if (userDeleteError) {
-        console.error('Error deleting user account:', userDeleteError);
-        throw userDeleteError;
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete account');
       }
 
       console.log('✅ Account deletion completed successfully');
@@ -408,9 +369,9 @@ const Settings = () => {
       await signOut();
       navigate('/login');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error deleting account:', error);
-      toast.error('Failed to delete account. Please try again or contact support.');
+      toast.error(`Failed to delete account: ${error?.message || 'Unknown error'}`);
     } finally {
       setDeletingAccount(false);
     }
