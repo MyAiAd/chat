@@ -43,6 +43,11 @@ const Chat = () => {
   const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
+  
+  // Message history for arrow key navigation
+  const [messageHistory, setMessageHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [currentDraft, setCurrentDraft] = useState('');
 
   const modelOptions = {
     openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o'],
@@ -249,11 +254,23 @@ const Chat = () => {
     setIsLoading(true);
 
     try {
+      // Add user message to history for arrow key navigation
+      const messageToSend = newMessage.trim();
+      setMessageHistory(prev => {
+        const newHistory = [...prev, messageToSend];
+        // Keep only last 50 messages in history
+        return newHistory.slice(-50);
+      });
+      
+      // Reset history navigation
+      setHistoryIndex(-1);
+      setCurrentDraft('');
+
       // Add user message to UI immediately
       const userMessage: Message = {
         id: Date.now().toString(),
         role: 'user',
-        content: newMessage,
+        content: messageToSend,
         timestamp: new Date()
       };
 
@@ -336,6 +353,42 @@ const Chat = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      navigateHistory('up');
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      navigateHistory('down');
+    }
+  };
+
+  const navigateHistory = (direction: 'up' | 'down') => {
+    if (messageHistory.length === 0) return;
+
+    if (direction === 'up') {
+      if (historyIndex === -1) {
+        // First time pressing up - save current draft and go to most recent
+        setCurrentDraft(newMessage);
+        setHistoryIndex(messageHistory.length - 1);
+        setNewMessage(messageHistory[messageHistory.length - 1]);
+      } else if (historyIndex > 0) {
+        // Go to previous message in history
+        setHistoryIndex(historyIndex - 1);
+        setNewMessage(messageHistory[historyIndex - 1]);
+      }
+    } else if (direction === 'down') {
+      if (historyIndex === -1) {
+        // Already at current draft, do nothing
+        return;
+      } else if (historyIndex < messageHistory.length - 1) {
+        // Go to next message in history
+        setHistoryIndex(historyIndex + 1);
+        setNewMessage(messageHistory[historyIndex + 1]);
+      } else {
+        // Reached end of history, return to current draft
+        setHistoryIndex(-1);
+        setNewMessage(currentDraft);
+      }
     }
   };
 
@@ -631,9 +684,16 @@ const Chat = () => {
                 <div className="flex-1">
                   <textarea
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                      // Reset history navigation when user manually types
+                      if (historyIndex !== -1) {
+                        setHistoryIndex(-1);
+                        setCurrentDraft('');
+                      }
+                    }}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type your message... (Shift+Enter for new line)"
+                    placeholder="Type your message... (Shift+Enter for new line, ↑/↓ for history)"
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     rows={1}
                     style={{ minHeight: '44px', maxHeight: '120px' }}
