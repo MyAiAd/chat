@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff, Search, Building2, Users, Upload } from 'lucide-react';
+import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff, Search, Building2, Users, Upload, UserX, AlertTriangle } from 'lucide-react';
 import { useMultiTenantAuth } from '../hooks/useMultiTenantAuth';
 import { toast } from 'react-toastify';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AIService } from '../services/aiService';
 
 const Settings = () => {
-  const { isOrgAdmin, isSuperAdmin, supabase, user, currentOrganization, userOrganizations, createOrganization } = useMultiTenantAuth();
+  const { isOrgAdmin, isSuperAdmin, supabase, user, currentOrganization, userOrganizations, createOrganization, signOut } = useMultiTenantAuth();
   const aiService = new AIService(supabase, currentOrganization?.id);
+  const navigate = useNavigate();
   
   // AI Settings state
   const [aiKeys, setAiKeys] = useState<any[]>([]);
@@ -35,6 +36,11 @@ const Settings = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadMethod, setUploadMethod] = useState<'text' | 'file'>('file');
+  
+  // Account deletion state
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     loadAiData();
@@ -320,6 +326,96 @@ const Settings = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE MY ACCOUNT') {
+      toast.error('Please type "DELETE MY ACCOUNT" to confirm');
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error('User not found');
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      console.log('🗑️ Starting account deletion process for user:', user.id);
+
+      // 1. Get user's conversation IDs first, then delete messages
+      const { data: userConversations } = await supabase
+        .from('chat_conversations')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (userConversations && userConversations.length > 0) {
+        const conversationIds = userConversations.map(conv => conv.id);
+        const { error: messagesError } = await supabase
+          .from('chat_messages')
+          .delete()
+          .in('conversation_id', conversationIds);
+
+        if (messagesError) {
+          console.error('Error deleting messages:', messagesError);
+          // Continue anyway
+        }
+              }
+
+      // 2. Delete user's conversations
+      const { error: conversationsError } = await supabase
+        .from('chat_conversations')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (conversationsError) {
+        console.error('Error deleting conversations:', conversationsError);
+        // Continue anyway
+      }
+
+      // 3. Delete user's API keys
+      const { error: apiKeysError } = await supabase
+        .from('ai_api_keys')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (apiKeysError) {
+        console.error('Error deleting API keys:', apiKeysError);
+        // Continue anyway
+      }
+
+      // 4. Delete user's organization memberships
+      const { error: orgMembershipsError } = await supabase
+        .from('user_organizations')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (orgMembershipsError) {
+        console.error('Error deleting organization memberships:', orgMembershipsError);
+        // Continue anyway
+      }
+
+      // 5. Finally, delete the user account itself
+      const { error: userDeleteError } = await supabase.auth.admin.deleteUser(user.id);
+
+      if (userDeleteError) {
+        console.error('Error deleting user account:', userDeleteError);
+        throw userDeleteError;
+      }
+
+      console.log('✅ Account deletion completed successfully');
+      toast.success('Account deleted successfully');
+
+      // Sign out and redirect to login
+      await signOut();
+      navigate('/login');
+      
+    } catch (error) {
+      console.error('❌ Error deleting account:', error);
+      toast.error('Failed to delete account. Please try again or contact support.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-8">
@@ -509,7 +605,101 @@ const Settings = () => {
             </div>
           )}
         </div>
+
+        {/* Account Management Section - Danger Zone */}
+        <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-6 mt-8">
+          <div className="flex items-center mb-6">
+            <AlertTriangle className="mr-3 h-6 w-6 text-red-400" />
+            <div>
+              <h2 className="text-xl font-semibold text-red-400">Danger Zone</h2>
+              <p className="text-sm text-gray-400 mt-1">
+                Irreversible account actions
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="text-lg font-medium text-red-300 mb-2">Delete Account</h3>
+                <p className="text-sm text-gray-300 mb-2">
+                  Permanently delete your account and all associated data.
+                </p>
+                <p className="text-xs text-red-400">
+                  ⚠️ This action cannot be undone. All your conversations, API keys, and settings will be permanently deleted.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDeleteAccountModal(true)}
+                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors ml-4"
+              >
+                <UserX className="mr-2 h-4 w-4" />
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteAccountModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-red-700">
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="mr-3 h-6 w-6 text-red-400" />
+              <h3 className="text-lg font-semibold text-red-400">Delete Account</h3>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-gray-300">
+                This action will permanently delete your account and all associated data including:
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1 ml-4">
+                <li>• All conversations and messages</li>
+                <li>• All API keys</li>
+                <li>• Organization memberships</li>
+                <li>• All account settings</li>
+              </ul>
+              
+              <div className="bg-red-900/30 border border-red-700 rounded p-3">
+                <p className="text-red-300 text-sm font-medium mb-2">
+                  ⚠️ This action cannot be undone!
+                </p>
+                <p className="text-gray-300 text-sm">
+                  Type <span className="font-mono bg-gray-700 px-1 rounded">DELETE MY ACCOUNT</span> to confirm:
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="w-full mt-2 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Type here to confirm"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDeleteAccountModal(false);
+                  setDeleteConfirmText('');
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                disabled={deletingAccount}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount || deleteConfirmText !== 'DELETE MY ACCOUNT'}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingAccount ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add API Key Modal */}
       {showAddKeyModal && (

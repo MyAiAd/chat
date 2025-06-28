@@ -365,7 +365,11 @@ const Chat = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
-    } else if (e.key === 'ArrowUp') {
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowUp') {
       e.preventDefault();
       navigateHistory('up');
     } else if (e.key === 'ArrowDown') {
@@ -705,6 +709,7 @@ const Chat = () => {
                       }
                     }}
                     onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyDown}
                     placeholder="Type your message... (Shift+Enter for new line, ↑/↓ for history)"
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     rows={1}
