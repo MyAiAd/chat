@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff } from 'lucide-react';
+import { Settings as SettingsIcon, Bot, Key, Plus, Trash2, FileText, Eye, EyeOff, Search } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
+import { AIService } from '../services/aiService';
 
 const Settings = () => {
   const { isAdmin, supabase, user } = useAuth();
+  const aiService = new AIService(supabase);
   
   // AI Settings state
   const [aiKeys, setAiKeys] = useState<any[]>([]);
@@ -22,8 +24,12 @@ const Settings = () => {
   });
   const [showAddKeyModal, setShowAddKeyModal] = useState(false);
   const [showAddDocModal, setShowAddDocModal] = useState(false);
+  const [showTestRagModal, setShowTestRagModal] = useState(false);
   const [loadingAiData, setLoadingAiData] = useState(false);
   const [showApiKey, setShowApiKey] = useState<string | null>(null);
+  const [ragTestQuery, setRagTestQuery] = useState('');
+  const [ragTestResults, setRagTestResults] = useState<any>(null);
+  const [testingRag, setTestingRag] = useState(false);
 
   useEffect(() => {
     loadAiData();
@@ -179,6 +185,31 @@ const Settings = () => {
     setShowApiKey(showApiKey === keyId ? null : keyId);
   };
 
+  const handleTestRag = async () => {
+    if (!ragTestQuery.trim()) {
+      toast.error('Please enter a test query');
+      return;
+    }
+
+    setTestingRag(true);
+    try {
+      console.log('🧪 Testing RAG with query:', ragTestQuery);
+      const results = await aiService.testRAGSearch(ragTestQuery);
+      setRagTestResults(results);
+      
+      if (results.documents.length === 0) {
+        toast.warning('No documents found for this query. Try different keywords.');
+      } else {
+        toast.success(`Found ${results.documents.length} relevant document(s)!`);
+      }
+    } catch (error) {
+      console.error('Error testing RAG:', error);
+      toast.error('Failed to test RAG search');
+    } finally {
+      setTestingRag(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-8">
@@ -272,13 +303,22 @@ const Settings = () => {
                   <FileText className="mr-3 h-6 w-6 text-green-400" />
                   <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
                 </div>
-                <button
-                  onClick={() => setShowAddDocModal(true)}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Document
-                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowTestRagModal(true)}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    Test Search
+                  </button>
+                  <button
+                    onClick={() => setShowAddDocModal(true)}
+                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Document
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -438,6 +478,102 @@ const Settings = () => {
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 Add Document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test RAG Modal */}
+      {showTestRagModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4">Test Knowledge Base Search</h3>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Test Query</label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={ragTestQuery}
+                    onChange={(e) => setRagTestQuery(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter a question to test document retrieval..."
+                    onKeyPress={(e) => e.key === 'Enter' && handleTestRag()}
+                  />
+                  <button
+                    onClick={handleTestRag}
+                    disabled={testingRag}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {testingRag ? 'Testing...' : 'Test'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {ragTestResults && (
+              <div className="space-y-4">
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">Extracted Keywords:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {ragTestResults.keywords.map((keyword: string, index: number) => (
+                      <span key={index} className="px-2 py-1 bg-blue-900/30 text-blue-300 text-sm rounded">
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">
+                    Found Documents ({ragTestResults.documents.length}):
+                  </h4>
+                  {ragTestResults.documents.length === 0 ? (
+                    <p className="text-red-400 text-sm">No documents found. Try different keywords or check your document content.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {ragTestResults.documents.map((doc: any, index: number) => (
+                        <div key={doc.id} className="bg-gray-600 rounded p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <h5 className="font-medium text-white">{doc.title}</h5>
+                            {doc.relevanceScore && (
+                              <span className="text-xs bg-green-900/30 text-green-300 px-2 py-1 rounded">
+                                Score: {doc.relevanceScore}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-300 line-clamp-2">
+                            {doc.content.substring(0, 200)}...
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {ragTestResults.context && (
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-300 mb-2">Generated Context Preview:</h4>
+                    <div className="text-xs text-gray-400 bg-gray-800 rounded p-3 max-h-60 overflow-y-auto">
+                      <pre className="whitespace-pre-wrap">{ragTestResults.context.substring(0, 1000)}...</pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowTestRagModal(false);
+                  setRagTestResults(null);
+                  setRagTestQuery('');
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

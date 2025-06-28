@@ -10,6 +10,7 @@ interface Message {
   content: string;
   timestamp: Date;
   ragDocuments?: string[];
+  ragFound?: boolean;
 }
 
 interface Conversation {
@@ -260,7 +261,7 @@ const Chat = () => {
       }));
 
       // Generate AI response using the AI service
-      const { response: aiResponse, ragDocuments } = await aiService.generateResponse(
+      const { response: aiResponse, ragDocuments, ragFound } = await aiService.generateResponse(
         newMessage,
         selectedProvider,
         selectedModel,
@@ -272,7 +273,8 @@ const Chat = () => {
         role: 'assistant',
         content: aiResponse,
         timestamp: new Date(),
-        ragDocuments
+        ragDocuments,
+        ragFound
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -552,12 +554,23 @@ const Chat = () => {
                       }`}
                     >
                       <div className="whitespace-pre-wrap">{message.content}</div>
-                      {message.ragDocuments && message.ragDocuments.length > 0 && (
+                      {message.role === 'assistant' && (
                         <div className="mt-2 pt-2 border-t border-gray-600">
-                          <div className="flex items-center text-xs text-gray-400">
-                            <FileText className="h-3 w-3 mr-1" />
-                            Used {message.ragDocuments.length} document(s)
-                          </div>
+                          {message.ragFound && message.ragDocuments && message.ragDocuments.length > 0 ? (
+                            <>
+                              <div className="flex items-center text-xs text-gray-400 mb-1">
+                                <FileText className="h-3 w-3 mr-1" />
+                                Referenced {message.ragDocuments.length} document(s)
+                              </div>
+                              <div className="text-xs text-green-400">
+                                ✓ Answer based on uploaded knowledge base
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-xs text-yellow-400">
+                              ⚠ No relevant documents found - answer from general knowledge
+                            </div>
+                          )}
                         </div>
                       )}
                       <div className="text-xs mt-2 opacity-70">

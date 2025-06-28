@@ -48,32 +48,199 @@ export class AIService {
   // Retrieve relevant RAG documents based on query
   async retrieveRelevantDocuments(query: string, limit: number = 5): Promise<RAGDocument[]> {
     try {
-      // Simple keyword-based search - in production, use vector embeddings
+      console.log('🔍 RAG Search - Query:', query);
+      
+      // Extract meaningful keywords from the query
+      const keywords = this.extractKeywords(query);
+      console.log('🔍 RAG Search - Extracted keywords:', keywords);
+      
+      if (keywords.length === 0) {
+        console.log('⚠️ RAG Search - No keywords extracted, returning empty results');
+        return [];
+      }
+
+      // Build dynamic search conditions for better matching
+      const searchConditions = keywords.map(keyword => 
+        `title.ilike.%${keyword}%,content.ilike.%${keyword}%,tags.cs.{${keyword}}`
+      );
+      
+      // Perform the search
       const { data, error } = await this.supabase
         .from('rag_documents')
         .select('*')
         .eq('is_active', true)
-        .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
-        .limit(limit);
+        .or(searchConditions.join(','))
+        .limit(limit * 2); // Get more results for relevance scoring
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ RAG Search - Database error:', error);
+        throw error;
+      }
 
-      return data || [];
+      console.log('📊 RAG Search - Raw results count:', data?.length || 0);
+      
+      if (!data || data.length === 0) {
+        console.log('📊 RAG Search - No documents found, trying fallback search');
+        return this.fallbackDocumentSearch(query, limit);
+      }
+
+      // Score and rank documents by relevance
+      const scoredDocuments = this.scoreDocumentRelevance(data, keywords, query);
+      console.log('📊 RAG Search - Scored documents:', scoredDocuments.map(d => ({ 
+        title: d.title, 
+        score: d.relevanceScore 
+      })));
+
+      // Return top documents
+      const results = scoredDocuments.slice(0, limit);
+      console.log('✅ RAG Search - Final results:', results.map(d => d.title));
+      
+      return results;
     } catch (error) {
-      console.error('Error retrieving RAG documents:', error);
+      console.error('❌ RAG Search - Error retrieving documents:', error);
       return [];
     }
   }
 
+  // Extract meaningful keywords from user query
+  private extractKeywords(query: string): string[] {
+    // Remove common stop words and extract meaningful terms
+    const stopWords = new Set([
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 
+      'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before', 'after', 
+      'above', 'below', 'between', 'among', 'is', 'am', 'are', 'was', 'were', 'be', 
+      'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 
+      'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'what', 'when', 
+      'where', 'why', 'how', 'who', 'which', 'that', 'this', 'these', 'those', 'i', 
+      'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them'
+    ]);
+
+    return query
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Remove punctuation
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopWords.has(word))
+      .slice(0, 10); // Limit to 10 keywords
+  }
+
+  // Fallback search for when primary search fails
+  private async fallbackDocumentSearch(query: string, limit: number): Promise<RAGDocument[]> {
+    try {
+      console.log('🔄 RAG Fallback - Trying broader search');
+      
+      // Try searching with individual words
+      const words = query.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+      
+      if (words.length === 0) {
+        // Last resort: get most recent documents
+        const { data, error } = await this.supabase
+          .from('rag_documents')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+          
+        console.log('🔄 RAG Fallback - Using recent documents:', data?.length || 0);
+        return data || [];
+      }
+
+      const fallbackConditions = words.map(word => 
+        `title.ilike.%${word}%,content.ilike.%${word}%`
+      );
+
+      const { data, error } = await this.supabase
+        .from('rag_documents')
+        .select('*')
+        .eq('is_active', true)
+        .or(fallbackConditions.join(','))
+        .limit(limit);
+
+      if (error) throw error;
+      
+      console.log('🔄 RAG Fallback - Found documents:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('❌ RAG Fallback - Error:', error);
+      return [];
+    }
+  }
+
+  // Score documents based on relevance to query
+  private scoreDocumentRelevance(documents: any[], keywords: string[], originalQuery: string): any[] {
+    return documents.map(doc => {
+      let score = 0;
+      const titleLower = doc.title.toLowerCase();
+      const contentLower = doc.content.toLowerCase();
+      const queryLower = originalQuery.toLowerCase();
+      
+      // Exact query match in title (highest score)
+      if (titleLower.includes(queryLower)) {
+        score += 100;
+      }
+      
+      // Exact query match in content
+      if (contentLower.includes(queryLower)) {
+        score += 50;
+      }
+      
+      // Keyword matches in title
+      keywords.forEach(keyword => {
+        if (titleLower.includes(keyword)) {
+          score += 10;
+        }
+        if (contentLower.includes(keyword)) {
+          score += 3;
+        }
+      });
+      
+      // Tag matches
+      if (doc.tags && Array.isArray(doc.tags)) {
+        keywords.forEach(keyword => {
+          if (doc.tags.some((tag: string) => tag.toLowerCase().includes(keyword))) {
+            score += 15;
+          }
+        });
+      }
+      
+      // Boost score for shorter content (more focused)
+      if (doc.content.length < 1000) {
+        score += 5;
+      }
+      
+      return { ...doc, relevanceScore: score };
+    }).sort((a, b) => b.relevanceScore - a.relevanceScore);
+  }
+
   // Generate context from RAG documents
   private generateContext(documents: RAGDocument[]): string {
-    if (documents.length === 0) return '';
+    if (documents.length === 0) {
+      console.log('📝 RAG Context - No documents to include in context');
+      return '';
+    }
 
+    console.log('📝 RAG Context - Generating context from', documents.length, 'documents');
+    
     const context = documents
-      .map(doc => `Title: ${doc.title}\nContent: ${doc.content}\n`)
-      .join('\n---\n');
+      .map((doc, index) => {
+        const truncatedContent = doc.content.length > 1500 
+          ? doc.content.substring(0, 1500) + '...' 
+          : doc.content;
+        
+        return `Document ${index + 1}:
+Title: ${doc.title}
+Content: ${truncatedContent}
+${doc.tags && doc.tags.length > 0 ? `Tags: ${doc.tags.join(', ')}` : ''}`;
+      })
+      .join('\n\n---\n\n');
 
-    return `Here are some relevant documents that might help answer the question:\n\n${context}\n\nPlease use this information to provide a helpful response.`;
+    const fullContext = `You have access to the following relevant documentation. Please use this information to provide accurate and helpful responses:
+
+${context}
+
+IMPORTANT: When answering, reference the specific documents above when relevant and provide accurate information based on the documentation provided.`;
+
+    console.log('📝 RAG Context - Generated context length:', fullContext.length);
+    return fullContext;
   }
 
   // Call OpenAI API
@@ -176,7 +343,7 @@ export class AIService {
     provider: string,
     model: string,
     conversationHistory: ChatMessage[] = []
-  ): Promise<{ response: string; ragDocuments: string[] }> {
+  ): Promise<{ response: string; ragDocuments: string[]; ragFound: boolean }> {
     try {
       // Retrieve relevant RAG documents
       const ragDocuments = await this.retrieveRelevantDocuments(query);
@@ -186,7 +353,14 @@ export class AIService {
       const messages: ChatMessage[] = [
         {
           role: 'system',
-          content: `You are a helpful AI assistant for an affiliate marketing platform. You have access to company documentation and guides. Use the provided context to give accurate, helpful responses about affiliate marketing, commissions, and platform features.
+          content: `You are a helpful AI assistant with access to a knowledge base of documents. 
+
+IMPORTANT INSTRUCTIONS:
+1. Always prioritize information from the provided documents when answering questions
+2. If the documents contain relevant information, use it and cite which document you're referencing
+3. If the documents don't contain relevant information, clearly state this and provide general assistance
+4. Be specific about which document sections you're referencing
+5. Don't make up information that isn't in the provided documents
 
 ${context}`
         },
@@ -216,7 +390,8 @@ ${context}`
 
       return {
         response,
-        ragDocuments: ragDocuments.map(doc => doc.id)
+        ragDocuments: ragDocuments.map(doc => doc.id),
+        ragFound: ragDocuments.length > 0
       };
     } catch (error) {
       console.error('Error generating AI response:', error);
@@ -227,6 +402,42 @@ ${context}`
   // Search RAG documents
   async searchDocuments(query: string): Promise<RAGDocument[]> {
     return this.retrieveRelevantDocuments(query, 10);
+  }
+
+  // Test RAG functionality - useful for debugging
+  async testRAGSearch(query: string): Promise<{
+    keywords: string[];
+    documents: RAGDocument[];
+    context: string;
+  }> {
+    console.log('🧪 Testing RAG search for query:', query);
+    
+    const keywords = this.extractKeywords(query);
+    const documents = await this.retrieveRelevantDocuments(query, 5);
+    const context = this.generateContext(documents);
+    
+    return {
+      keywords,
+      documents,
+      context
+    };
+  }
+
+  // Get all documents for admin review
+  async getAllDocuments(): Promise<RAGDocument[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from('rag_documents')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting all documents:', error);
+      return [];
+    }
   }
 
   // Get all available models for a provider
