@@ -46,7 +46,20 @@ export class AIService {
       if (error || !data) return null;
       
       // Decrypt the API key (simple base64 decode - in production use proper encryption)
-      return atob(data.api_key_encrypted);
+      try {
+        const decoded = atob(data.api_key_encrypted);
+        const cleanKey = decoded.trim(); // Remove any whitespace
+        console.log('🔑 Key Debug - Provider:', provider);
+        console.log('🔑 Key Debug - Encoded length:', data.api_key_encrypted.length);
+        console.log('🔑 Key Debug - Decoded length:', decoded.length);
+        console.log('🔑 Key Debug - Clean length:', cleanKey.length);
+        console.log('🔑 Key Debug - Has whitespace:', decoded !== cleanKey);
+        return cleanKey;
+      } catch (decodeError) {
+        console.error('❌ Base64 decode error:', decodeError);
+        console.error('❌ Corrupted encoded key:', data.api_key_encrypted);
+        return null;
+      }
     } catch (error) {
       console.error('Error getting API key:', error);
       return null;

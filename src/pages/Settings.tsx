@@ -107,8 +107,28 @@ const Settings = () => {
     }
 
     try {
+      // Clean and validate the API key
+      const cleanKey = newApiKey.apiKey.trim(); // Remove any whitespace
+      
+      // Validate key format based on provider
+      const keyValidation = {
+        openai: cleanKey.startsWith('sk-'),
+        anthropic: cleanKey.startsWith('sk-ant-'),
+        openrouter: cleanKey.startsWith('sk-or-')
+      };
+      
+      if (!keyValidation[newApiKey.provider as keyof typeof keyValidation]) {
+        toast.error(`Invalid ${newApiKey.provider} API key format`);
+        return;
+      }
+      
       // Encode the API key (simple base64 encoding for storage)
-      const encodedKey = btoa(newApiKey.apiKey);
+      const encodedKey = btoa(cleanKey);
+      console.log('🔑 Encoding Debug - Provider:', newApiKey.provider);
+      console.log('🔑 Encoding Debug - Original length:', newApiKey.apiKey.length);
+      console.log('🔑 Encoding Debug - Clean length:', cleanKey.length);
+      console.log('🔑 Encoding Debug - Encoded length:', encodedKey.length);
+      console.log('🔑 Encoding Debug - Key prefix:', cleanKey.substring(0, 15) + '...');
       
       const { error } = await supabase
         .from('ai_api_keys')
