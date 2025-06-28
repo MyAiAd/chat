@@ -187,8 +187,7 @@ const Settings = () => {
           <div className="mb-8">
             <div className="flex items-center mb-4">
               <Link to="/chat" className="flex items-center group hover:opacity-80 focus:outline-none">
-                <Bot className="mr-3 h-8 w-8 text-blue-400 group-hover:text-blue-300 transition-colors" />
-                <span className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors">AI Chat</span>
+                <span className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors">Settings</span>
               </Link>
             </div>
             <p className="text-gray-400">
