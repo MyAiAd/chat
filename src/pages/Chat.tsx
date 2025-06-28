@@ -56,9 +56,9 @@ const Chat = () => {
       'gpt-4-turbo'        // Top: Advanced reasoning
     ],
     anthropic: [
-      'claude-3-5-haiku-20241022',     // Small: Fastest model for daily tasks
-      'claude-3-5-sonnet-20241022',    // Mid: Smart, efficient model for everyday use  
-      'claude-3-opus-20240229'         // Top: Powerful model for complex challenges
+      'claude-3-5-haiku-20241022',  // Small: Fastest model for daily tasks
+      'claude-sonnet-4-20250514',   // Mid: Smart, efficient model for everyday use
+      'claude-opus-4-20250514'      // Top: Powerful, large model for complex challenges
     ],
     openrouter: [
       'meta-llama/llama-3.1-8b-instruct',  // Small: Fast 8B param model

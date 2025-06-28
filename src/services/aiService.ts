@@ -304,7 +304,7 @@ IMPORTANT: When answering, reference the specific documents above when relevant 
   }
 
   // Call Anthropic API via proxy
-  async callAnthropic(messages: ChatMessage[], model: string = 'claude-3-5-sonnet-20241022'): Promise<string> {
+  async callAnthropic(messages: ChatMessage[], model: string = 'claude-3-5-haiku-20241022'): Promise<string> {
     const apiKey = await this.getApiKey('anthropic');
     console.log('🔑 Client Debug - Anthropic API Key Retrieved:');
     console.log('🔑 API Key length:', apiKey ? apiKey.length : 0);
@@ -492,9 +492,9 @@ ${context}`
         'gpt-4-turbo'        // Top: Advanced reasoning
       ],
       anthropic: [
-        'claude-3-5-haiku-20241022',     // Small: Fastest model for daily tasks
-        'claude-3-5-sonnet-20241022',    // Mid: Smart, efficient model for everyday use  
-        'claude-3-opus-20240229'         // Top: Powerful model for complex challenges
+        'claude-3-5-haiku-20241022',  // Small: Fastest model for daily tasks
+        'claude-sonnet-4-20250514',   // Mid: Smart, efficient model for everyday use
+        'claude-opus-4-20250514'      // Top: Powerful, large model for complex challenges
       ],
       openrouter: [
         'meta-llama/llama-3.1-8b-instruct',  // Small: Fast 8B param model
