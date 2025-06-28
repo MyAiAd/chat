@@ -62,13 +62,19 @@ const Settings = () => {
       setAiKeys(keys || []);
 
       // Load RAG documents (if org admin)
-      if (isOrgAdmin) {
-        console.log('🔍 User is admin, loading RAG documents...');
-        const { data: docs, error: docsError } = await supabase
+      if (isOrgAdmin && currentOrganization) {
+        console.log('🔍 User is admin, loading RAG documents for org:', currentOrganization.id);
+        
+        let docsQuery = supabase
           .from('rag_documents')
           .select('*')
           .eq('is_active', true)
           .order('created_at', { ascending: false });
+
+        // Filter by organization_id to match saving logic
+        docsQuery = docsQuery.eq('organization_id', currentOrganization.id);
+
+        const { data: docs, error: docsError } = await docsQuery;
 
         if (docsError) {
           console.error('RAG docs loading error:', docsError);
@@ -77,6 +83,9 @@ const Settings = () => {
         
         console.log('✅ RAG documents loaded successfully:', docs);
         setRagDocuments(docs || []);
+      } else if (isOrgAdmin) {
+        console.log('⚠️ Admin user but no organization selected, clearing documents');
+        setRagDocuments([]);
       }
     } catch (error) {
       console.error('Error loading AI data:', error);
@@ -377,7 +386,12 @@ const Settings = () => {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
                   <FileText className="mr-3 h-6 w-6 text-green-400" />
-                  <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Organization: {currentOrganization.name} • {ragDocuments.length} document(s)
+                    </p>
+                  </div>
                 </div>
                 <div className="flex space-x-3">
                   <button
@@ -450,6 +464,38 @@ const Settings = () => {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* RAG Documents Info for Non-Admins */}
+          {!isOrgAdmin && (
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center mb-4">
+                <FileText className="mr-3 h-6 w-6 text-gray-400" />
+                <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
+              </div>
+              <div className="text-center py-6">
+                <p className="text-gray-400 mb-2">📚 Knowledge Base Access</p>
+                <p className="text-sm text-gray-500">
+                  Only organization administrators can manage knowledge base documents.
+                  {!currentOrganization ? ' Please join an organization to access this feature.' : ' Contact your organization admin for document management.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {isOrgAdmin && !currentOrganization && (
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center mb-4">
+                <FileText className="mr-3 h-6 w-6 text-yellow-400" />
+                <h2 className="text-xl font-semibold text-white">Knowledge Base Documents</h2>
+              </div>
+              <div className="text-center py-6">
+                <p className="text-yellow-400 mb-2">⚠️ No Organization Selected</p>
+                <p className="text-sm text-gray-400">
+                  Please select an organization to manage knowledge base documents.
+                </p>
               </div>
             </div>
           )}
