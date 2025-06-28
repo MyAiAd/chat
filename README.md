@@ -153,4 +153,28 @@ For issues and questions:
 - Use browser DevTools to debug issues
 - Check Supabase logs for database errors
 - Monitor network requests for API call issues
-- Enable debug logging in development mode 
+- Enable debug logging in development mode
+
+## ⚡️ Vercel SPA Routing
+
+This app is a Single Page Application (SPA). To ensure client-side routing works on Vercel (e.g., refreshing on a nested route), a `vercel.json` file is included:
+
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+This tells Vercel to serve `index.html` for all routes, allowing React Router to handle navigation.
+
+## 🔒 Supabase RLS & Auth Timing
+
+- **Row Level Security (RLS):**
+  - All database tables are protected by RLS policies. See `database/setup.sql` for details.
+  - If you get a 403 error, ensure your Supabase project has the correct policies (see `database/fix_403_error.sql`).
+
+- **Auth Timing:**
+  - The app waits for Supabase session restoration before rendering protected routes (see `src/contexts/AuthContext.tsx`).
+  - A loading state is shown until the session is checked, preventing race conditions and unauthorized access. 
