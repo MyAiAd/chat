@@ -23,11 +23,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    // Convert messages to Anthropic format
+    // Convert messages to Anthropic format (modern API)
     const anthropicMessages = messages
       .filter((msg) => msg.role !== 'system')
       .map((msg) => ({
-        role: msg.role === 'user' ? 'human' : 'assistant',
+        role: msg.role, // Keep original roles: 'user' and 'assistant'
         content: msg.content
       }));
 
@@ -39,9 +39,13 @@ export default async function handler(req, res) {
     const requestBody = {
       model,
       max_tokens: 1000,
-      system: systemMessage,
       messages: anthropicMessages
     };
+
+    // Only add system message if it exists
+    if (systemMessage) {
+      requestBody.system = systemMessage;
+    }
 
     console.log('🔑 Making request to Anthropic API...');
     console.log('🔑 Request body:', JSON.stringify(requestBody, null, 2));
@@ -50,7 +54,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'x-api-key': apiKey,  // Use x-api-key instead of Authorization Bearer
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify(requestBody)
