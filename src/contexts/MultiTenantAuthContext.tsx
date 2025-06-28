@@ -50,7 +50,7 @@ type MultiTenantAuthContextType = {
   }>;
   
   // Organization methods
-  switchOrganization: (organizationId: string) => Promise<void>;
+  switchOrganization: (organizationId: string, orgsArray?: UserOrganization[]) => Promise<void>;
   createOrganization: (name: string, slug: string) => Promise<{ data: Organization | null; error: any }>;
   inviteUserToOrg: (email: string, role: 'admin' | 'member' | 'viewer') => Promise<{ error: any }>;
   updateUserRole: (userId: string, role: 'admin' | 'member' | 'viewer') => Promise<{ error: any }>;
@@ -229,7 +229,7 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
 
       if (targetOrg) {
         console.log('🏢 DEBUG: About to switch to organization:', targetOrg.organization.name);
-        await switchOrganization(targetOrg.organization_id);
+        await switchOrganization(targetOrg.organization_id, transformedOrgs as UserOrganization[]);
         console.log('🏢 DEBUG: Organization switch completed');
       } else if (checkSuperAdminStatus(user)) {
         // No organizations - create a default one for super admin
@@ -268,14 +268,18 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
     }
   };
 
-  // Switch to a different organization
-  const switchOrganization = async (organizationId: string) => {
+  // Switch to a different organization (with optional orgs array for fresh data)
+  const switchOrganization = async (organizationId: string, orgsArray?: UserOrganization[]) => {
     try {
       console.log('🏢 Switching to organization:', organizationId);
       
-      const org = userOrganizations.find(uo => uo.organization_id === organizationId);
+      // Use provided orgs array or fall back to state (for fresh data scenarios)
+      const orgsToSearch = orgsArray || userOrganizations;
+      console.log('🏢 DEBUG: Searching in', orgsToSearch.length, 'organizations');
+      
+      const org = orgsToSearch.find(uo => uo.organization_id === organizationId);
       if (!org) {
-        console.error('Organization not found in user orgs');
+        console.error('🏢 Organization not found in user orgs. Available orgs:', orgsToSearch.map(o => o.organization_id));
         return;
       }
 
