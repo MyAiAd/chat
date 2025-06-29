@@ -449,12 +449,26 @@ const Settings = () => {
       }
 
       console.log('✅ Super admin status granted successfully');
-      toast.success('You are now the Platform Owner! Please refresh the page.');
       
-      // Suggest page refresh to pick up new permissions
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      if (result.requiresReauth) {
+        toast.success('Platform owner status granted! You need to sign out and sign back in for full access.', {
+          autoClose: false
+        });
+        
+        // Show a modal or prompt to sign out
+        if (confirm('Platform owner privileges granted! You need to sign out and sign back in to access RAG document upload. Sign out now?')) {
+          // Sign out the user
+          await supabase.auth.signOut();
+          // The auth context will handle redirecting to login
+        }
+      } else {
+        toast.success('You are now the Platform Owner! Please refresh the page.');
+        
+        // Suggest page refresh to pick up new permissions
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
       
     } catch (error: any) {
       console.error('❌ Error becoming super admin:', error);

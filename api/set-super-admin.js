@@ -92,7 +92,7 @@ export default async function handler(req, res) {
     }
 
     // Also update user_metadata for immediate frontend consistency
-    const { data: updatedUser, error: metaError } = await supabaseAdmin.auth.admin.updateUserById(
+    const { data: metaUpdatedUser, error: metaError } = await supabaseAdmin.auth.admin.updateUserById(
       user.id,
       {
         user_metadata: {
@@ -107,16 +107,32 @@ export default async function handler(req, res) {
       // Continue since the main update succeeded
     }
 
+    // Verify the update worked by getting fresh user data
+    const { data: { user: verifiedUser }, error: refreshError } = await supabaseAdmin.auth.admin.getUserById(user.id);
+    
+    if (refreshError || !verifiedUser) {
+      console.error('Error verifying user update:', refreshError);
+      return res.status(500).json({ 
+        error: 'Admin status update verification failed',
+        details: refreshError?.message || 'Could not verify user update'
+      });
+    }
+
     console.log('✅ Successfully set super admin status for user:', user.email);
+    console.log('✅ Verified admin status in database:', {
+      user_metadata: verifiedUser.user_metadata?.is_admin,
+      raw_user_meta_data: verifiedUser.raw_user_meta_data?.is_admin
+    });
     
     return res.status(200).json({ 
       success: true, 
-      message: 'Super admin status granted successfully',
+      message: 'Super admin status granted successfully. Please sign out and sign back in to refresh your session.',
       user: {
         id: user.id,
         email: user.email,
         is_admin: true
-      }
+      },
+      requiresReauth: true
     });
 
   } catch (error) {
