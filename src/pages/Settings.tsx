@@ -53,20 +53,27 @@ const Settings = () => {
   }, []);
 
   const checkIfOnlyUser = async () => {
+    console.log('🔍 DEBUG: checkIfOnlyUser called, isSuperAdmin:', isSuperAdmin);
+    
     if (isSuperAdmin) {
+      console.log('🔍 DEBUG: User is already super admin, skipping eligibility check');
       setIsOnlyUser(false);
       setCheckingUserCount(false);
       return;
     }
 
     try {
+      console.log('🔍 DEBUG: Getting session for eligibility check...');
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
+        console.log('🔍 DEBUG: No session token, cannot check eligibility');
         setIsOnlyUser(false);
         setCheckingUserCount(false);
         return;
       }
 
+      console.log('🔍 DEBUG: Session found, calling eligibility API...');
+      
       // Call a simple check endpoint to see if user can become super admin
       const response = await fetch('/api/check-super-admin-eligibility', {
         method: 'POST',
@@ -76,12 +83,20 @@ const Settings = () => {
         }
       });
 
+      console.log('🔍 DEBUG: Eligibility API response status:', response.status);
+      
       const result = await response.json();
-      setIsOnlyUser(response.ok && result.canBecomeSuperAdmin);
+      console.log('🔍 DEBUG: Eligibility API result:', result);
+      
+      const canBecome = response.ok && result.canBecomeSuperAdmin;
+      console.log('🔍 DEBUG: Final eligibility decision:', canBecome);
+      
+      setIsOnlyUser(canBecome);
     } catch (error) {
-      console.error('Error checking user eligibility:', error);
+      console.error('❌ Error checking user eligibility:', error);
       setIsOnlyUser(false);
     } finally {
+      console.log('🔍 DEBUG: Setting checkingUserCount to false');
       setCheckingUserCount(false);
     }
   };
