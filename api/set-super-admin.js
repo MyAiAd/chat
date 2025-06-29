@@ -78,8 +78,21 @@ export default async function handler(req, res) {
 
     console.log('✅ SECURITY: User is the only user in system, allowing promotion');
 
-    // Update user metadata to mark as super admin
-    const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+    // Call our custom function to update raw_user_meta_data properly
+    const { error: adminUpdateError } = await supabaseAdmin.rpc('set_user_super_admin', {
+      target_user_id: user.id
+    });
+
+    if (adminUpdateError) {
+      console.error('Error calling set_user_super_admin function:', adminUpdateError);
+      return res.status(500).json({ 
+        error: 'Failed to grant super admin privileges',
+        details: adminUpdateError.message
+      });
+    }
+
+    // Also update user_metadata for immediate frontend consistency
+    const { data: updatedUser, error: metaError } = await supabaseAdmin.auth.admin.updateUserById(
       user.id,
       {
         user_metadata: {
@@ -89,12 +102,9 @@ export default async function handler(req, res) {
       }
     );
 
-    if (updateError) {
-      console.error('Error updating user metadata:', updateError);
-      return res.status(500).json({ 
-        error: 'Failed to update user metadata',
-        details: updateError.message 
-      });
+    if (metaError) {
+      console.warn('Warning: user_metadata update failed:', metaError);
+      // Continue since the main update succeeded
     }
 
     console.log('✅ Successfully set super admin status for user:', user.email);
