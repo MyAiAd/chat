@@ -367,8 +367,8 @@ const Settings = () => {
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== 'DELETE MY ACCOUNT') {
-      toast.error('Please type "DELETE MY ACCOUNT" to confirm');
+    if (deleteConfirmText !== 'DELETE') {
+      toast.error('Please type "DELETE" to confirm');
       return;
     }
 
@@ -762,7 +762,7 @@ const Settings = () => {
                   ⚠️ This action cannot be undone!
                 </p>
                 <p className="text-gray-300 text-sm">
-                  Type <span className="font-mono bg-gray-700 px-1 rounded">DELETE MY ACCOUNT</span> to confirm:
+                                      Type <span className="font-mono bg-gray-700 px-1 rounded">DELETE</span> to confirm:
                 </p>
                 <input
                   type="text"
@@ -787,7 +787,7 @@ const Settings = () => {
               </button>
               <button
                 onClick={handleDeleteAccount}
-                disabled={deletingAccount || deleteConfirmText !== 'DELETE MY ACCOUNT'}
+                                      disabled={deletingAccount || deleteConfirmText !== 'DELETE'}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deletingAccount ? 'Deleting...' : 'Delete Account'}
