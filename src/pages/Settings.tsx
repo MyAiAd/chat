@@ -651,8 +651,8 @@ const Settings = () => {
             </div>
           )}
 
-          {/* RAG Documents Info for Non-Super-Admins */}
-          {!isSuperAdmin && (
+          {/* RAG Documents Info for Non-Super-Admins - Only show to eligible users */}
+          {!isSuperAdmin && (checkingUserCount || isOnlyUser) && (
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
               <div className="flex items-center mb-4">
                 <FileText className="mr-3 h-6 w-6 text-gray-400" />
