@@ -682,15 +682,7 @@ const Settings = () => {
                       )}
                     </button>
                   </div>
-                ) : (
-                  <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4 mt-4">
-                    <h3 className="text-red-300 font-medium mb-2">🔒 Platform Owner Unavailable</h3>
-                    <p className="text-sm text-gray-300">
-                      Platform ownership is only available to the first user when no other users exist in the system. 
-                      Other users are currently registered.
-                    </p>
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
           )}
