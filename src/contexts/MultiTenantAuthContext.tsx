@@ -57,8 +57,8 @@ type MultiTenantAuthContextType = {
 };
 
 // Environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+const supabaseKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
 console.log('🏢 Multi-Tenant Auth: Environment Variables Debug');
 console.log('- VITE_SUPABASE_URL:', supabaseUrl);
@@ -443,7 +443,15 @@ export const MultiTenantAuthProvider = ({ children }: { children: ReactNode }) =
         if (session?.user) {
           console.log('🏢 DEBUG: Setting user and loading organizations...');
           setUser(session.user);
-          setIsSuperAdmin(checkSuperAdminStatus(session.user));
+          const isSuperAdmin = checkSuperAdminStatus(session.user);
+          setIsSuperAdmin(isSuperAdmin);
+          
+          // Update admin exists cache when a super admin logs in
+          if (isSuperAdmin) {
+            console.log('🏢 Super admin logged in, updating admin status cache');
+            localStorage.setItem('adminExists', 'true');
+          }
+          
           console.log('🏢 DEBUG: About to call loadUserOrganizations...');
           await loadUserOrganizations(session.user.id);
           console.log('🏢 DEBUG: loadUserOrganizations call completed');

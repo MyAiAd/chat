@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { useMultiTenantAuth } from './hooks/useMultiTenantAuth';
+import { useAdminStatus } from './hooks/useAdminStatus';
 import { MessageCircle, Settings, LogOut, Bot, Building2, ChevronDown } from 'lucide-react';
 
 // Lazy load components
@@ -111,6 +112,46 @@ const Navigation = () => {
   );
 };
 
+// Guest Navigation component for anonymous users
+const GuestNavigation = () => {
+  const location = useLocation();
+
+  return (
+    <nav className="bg-gray-800 border-b border-gray-700">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <div className="flex items-center">
+            <div className="flex items-center group">
+              <Bot className="h-8 w-8 text-blue-400 mr-3" />
+              <h1 className="text-xl font-bold text-white">AI Chat</h1>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white">
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Chat
+            </div>
+
+            {/* User Status */}
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-400">Guest Mode</span>
+              <Link
+                to="/login"
+                className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-gray-700 transition-colors"
+              >
+                Admin Login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useMultiTenantAuth();
@@ -148,20 +189,76 @@ const AuthLayout = ({ children }: { children: React.ReactNode }) => (
 );
 
 function App() {
-  const { user, loading } = useMultiTenantAuth();
+  const { user, loading: authLoading } = useMultiTenantAuth();
+  const { adminExists, loading: adminLoading } = useAdminStatus();
 
-  console.log('App.tsx: Auth state - loading:', loading, 'user:', user?.email || 'none');
+  console.log('App.tsx: Auth state - authLoading:', authLoading, 'adminLoading:', adminLoading, 'user:', user?.email || 'none', 'adminExists:', adminExists);
 
-  // Show loading screen while authentication state is being determined
-  if (loading) {
-    console.log('App.tsx: Auth still loading, showing loading screen');
+  // Show loading screen while checking authentication and admin status
+  if (authLoading || adminLoading) {
+    console.log('App.tsx: Still loading, showing loading screen');
     return <LoadingScreen />;
   }
 
+  // If no admin exists yet, require login for first-time setup
+  if (!adminExists) {
+    console.log('App.tsx: No admin exists, requiring login for first-time setup');
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route 
+            path="/login" 
+            element={
+              !user ? (
+                <AuthLayout>
+                  <Login />
+                </AuthLayout>
+              ) : (
+                <Navigate to="/chat" replace />
+              )
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              !user ? (
+                <AuthLayout>
+                  <Register />
+                </AuthLayout>
+              ) : (
+                <Navigate to="/chat" replace />
+              )
+            } 
+          />
+          <Route
+            path="/chat"
+            element={
+              <ProtectedRoute>
+                <Chat />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
+          <Route path="*" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
+  // Admin exists - allow anonymous access to chat, require auth for settings
+  console.log('App.tsx: Admin exists, allowing anonymous access to chat');
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Routes>
-        {/* Auth Routes */}
+        {/* Auth Routes - Only for admin access */}
         <Route 
           path="/login" 
           element={
@@ -187,15 +284,20 @@ function App() {
           } 
         />
 
-        {/* Protected Routes */}
+        {/* Public Chat Route - No authentication required */}
         <Route
           path="/chat"
           element={
-            <ProtectedRoute>
-              <Chat />
-            </ProtectedRoute>
+            <div className="min-h-screen bg-gray-900">
+              <GuestNavigation />
+              <main className="h-[calc(100vh-4rem)]">
+                <Chat />
+              </main>
+            </div>
           }
         />
+
+        {/* Protected Settings Route - Admin only */}
         <Route
           path="/settings"
           element={
@@ -206,8 +308,8 @@ function App() {
         />
 
         {/* Default redirect */}
-        <Route path="/" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
-        <Route path="*" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
+        <Route path="/" element={<Navigate to="/chat" replace />} />
+        <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </Suspense>
   );

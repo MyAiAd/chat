@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
 import { useMultiTenantAuth } from '../hooks/useMultiTenantAuth';
+import { useAdminStatus } from '../hooks/useAdminStatus';
 import { toast } from 'react-toastify';
 
 const Login = () => {
@@ -10,6 +11,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn } = useMultiTenantAuth();
+  const { adminExists } = useAdminStatus();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,8 +43,22 @@ const Login = () => {
   return (
     <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 shadow-xl">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Welcome Back</h2>
-        <p className="text-gray-400">Sign in to your AI Chat account</p>
+        {!adminExists ? (
+          <>
+            <h2 className="text-2xl font-bold text-white mb-2">First-Time Setup</h2>
+            <p className="text-gray-400">Create your platform owner account to get started</p>
+            <div className="mt-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+              <p className="text-blue-300 text-sm">
+                As the first user, you'll become the platform owner with full access to manage RAG documents and settings.
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-bold text-white mb-2">Admin Login</h2>
+            <p className="text-gray-400">Sign in to manage platform settings</p>
+          </>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -106,15 +122,32 @@ const Login = () => {
       </form>
 
       <div className="mt-6 text-center">
-        <p className="text-gray-400">
-          Don't have an account?{' '}
-          <Link
-            to="/register"
-            className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-          >
-            Sign up here
-          </Link>
-        </p>
+        {!adminExists ? (
+          <p className="text-gray-400">
+            Need to create your admin account?{' '}
+            <Link
+              to="/register"
+              className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+            >
+              Sign up here
+            </Link>
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-gray-400">
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              >
+                Sign up here
+              </Link>
+            </p>
+            <p className="text-sm text-gray-500">
+              Note: Regular users can access the chat directly without login
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 text-center">
