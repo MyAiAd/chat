@@ -200,61 +200,9 @@ function App() {
     return <LoadingScreen />;
   }
 
-  // If no admin exists yet, require login for first-time setup
-  if (!adminExists) {
-    console.log('App.tsx: No admin exists, requiring login for first-time setup');
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <Routes>
-          <Route 
-            path="/login" 
-            element={
-              !user ? (
-                <AuthLayout>
-                  <Login />
-                </AuthLayout>
-              ) : (
-                <Navigate to="/chat" replace />
-              )
-            } 
-          />
-          <Route 
-            path="/register" 
-            element={
-              !user ? (
-                <AuthLayout>
-                  <Register />
-                </AuthLayout>
-              ) : (
-                <Navigate to="/chat" replace />
-              )
-            } 
-          />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <SettingsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
-          <Route path="*" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
-        </Routes>
-      </Suspense>
-    );
-  }
+  // Always allow anonymous access to chat, regardless of admin status
+  console.log('App.tsx: Allowing anonymous access to chat');
 
-  // Admin exists - allow anonymous access to chat, require auth for settings
-  console.log('App.tsx: Admin exists, allowing anonymous access to chat');
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Routes>
@@ -307,7 +255,7 @@ function App() {
           }
         />
 
-        {/* Default redirect */}
+        {/* Default redirect - Always go to chat */}
         <Route path="/" element={<Navigate to="/chat" replace />} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
